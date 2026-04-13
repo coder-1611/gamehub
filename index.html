@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameHub</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;font-family:'Nunito',sans-serif;background:#0f0f1a;color:white;overflow-x:hidden}
+
+body{display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:60px 20px 40px}
+
+h1{font-family:'Fredoka One',cursive;font-size:52px;background:linear-gradient(135deg,#FFD54F,#FF6F00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.subtitle{color:rgba(255,255,255,0.4);font-size:15px;margin-bottom:50px}
+
+.games-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;width:100%;max-width:900px}
+
+.game-card{border-radius:20px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;text-decoration:none;color:white;position:relative}
+.game-card:hover{transform:translateY(-6px);box-shadow:0 12px 40px rgba(0,0,0,0.4)}
+
+.game-thumb{width:100%;height:200px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.game-thumb .bg-icon{font-size:80px;opacity:0.25;position:absolute}
+.game-thumb .fg-icon{font-size:56px;position:relative;z-index:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3))}
+
+.game-card.ttt .game-thumb{background:linear-gradient(135deg,#1565C0,#0D47A1)}
+.game-card.mini-golf .game-thumb{background:linear-gradient(135deg,#2E7D32,#1B5E20)}
+.game-card.crazy-8 .game-thumb{background:linear-gradient(135deg,#8B2525,#4A1212)}
+
+.game-body{padding:20px 24px 24px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 20px 20px}
+.game-title{font-family:'Fredoka One',cursive;font-size:22px;margin-bottom:6px}
+.game-desc{color:rgba(255,255,255,0.5);font-size:13px;line-height:1.5}
+.game-tags{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.tag{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)}
+.tag.mp{background:rgba(76,175,80,0.15);color:#66BB6A}
+.tag.local{background:rgba(33,150,243,0.15);color:#42A5F5}
+
+footer{margin-top:auto;padding-top:40px;color:rgba(255,255,255,0.2);font-size:12px}
+</style>
+</head>
+<body>
+
+<h1>GameHub</h1>
+<p class="subtitle">Pick a game and play</p>
+
+<div class="games-grid">
+  <a class="game-card ttt" href="mini-golf/game.html">
+    <div class="game-thumb">
+      <span class="bg-icon">&#10006;</span>
+      <span class="fg-icon">&#10006;&#9898;</span>
+    </div>
+    <div class="game-body">
+      <div class="game-title">Tic Tac Toe</div>
+      <div class="game-desc">Outsmart your friend in the classic showdown.</div>
+      <div class="game-tags">
+        <span class="tag mp">Online Multiplayer</span>
+        <span class="tag">2 Players</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="game-card mini-golf" href="mini-golf/game.html">
+    <div class="game-thumb">
+      <span class="bg-icon">&#9971;</span>
+      <span class="fg-icon">&#9971;</span>
+    </div>
+    <div class="game-body">
+      <div class="game-title">Mini Golf</div>
+      <div class="game-desc">Physics-based mini golf with multiple courses. Challenge a friend online!</div>
+      <div class="game-tags">
+        <span class="tag mp">Online Multiplayer</span>
+        <span class="tag">2 Players</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="game-card crazy-8" href="crazy-8/game.html">
+    <div class="game-thumb">
+      <span class="bg-icon">🃏</span>
+      <span class="fg-icon">🎴</span>
+    </div>
+    <div class="game-body">
+      <div class="game-title">Crazy 8</div>
+      <div class="game-desc">The classic card game. Play vs AI or challenge friends online in real time.</div>
+      <div class="game-tags">
+        <span class="tag mp">Online / vs AI</span>
+        <span class="tag">3–6 Players</span>
+      </div>
+    </div>
+  </a>
+</div>
+
+<footer>GameHub</footer>
+
+</body>
+</html>

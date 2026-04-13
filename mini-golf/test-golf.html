@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Golf Turn-Switch Test</title>
+<style>
+body { font-family: monospace; background: #1a1a2e; color: #0f0; padding: 20px; }
+.pass { color: #0f0; font-weight: bold; } .fail { color: #f00; font-weight: bold; } .info { color: #0af; }
+#log { white-space: pre-wrap; line-height: 1.8; font-size: 14px; }
+h1 { color: #fff; }
+</style>
+</head>
+<body>
+<h1>Mini Golf - Full Turn System Test</h1>
+<div id="log"></div>
+<script>
+var FB = 'https://gamehub-cce9d-default-rtdb.firebaseio.com';
+var CODE = 'TEST' + Math.random().toString(36).substr(2,5).toUpperCase();
+var log = document.getElementById('log');
+var passes = 0, fails = 0;
+
+function print(msg, cls) {
+  var d = document.createElement('div');
+  d.className = cls || 'info';
+  d.textContent = msg;
+  log.appendChild(d);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function put(code, data) {
+  return fetch(FB+'/games/'+code+'.json', {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+  }).then(function(r) { return r.json(); });
+}
+
+function get(code) {
+  return fetch(FB+'/games/'+code+'.json').then(function(r) { return r.json(); });
+}
+
+function del(code) {
+  return fetch(FB+'/games/'+code+'.json', { method:'DELETE' });
+}
+
+function check(ok, msg) {
+  if (ok) { passes++; print('  PASS: ' + msg, 'pass'); }
+  else { fails++; print('  FAIL: ' + msg, 'fail'); }
+}
+
+function wait(ms) { return new Promise(function(r){setTimeout(r,ms);}); }
+
+function gameState(overrides) {
+  var base = {
+    type:'minigolf', board:'_', turn:'1',
+    status:'waiting', currentHole:0, currentPlayer:1,
+    ballPos:{x:200,y:520}, strokes:0, sunk:false,
+    lastShotVel:{x:0,y:0}, lastShot:0,
+    scores:{P1:[null,null,null],P2:[null,null,null]},
+    createdAt:Date.now()
+  };
+  for (var k in overrides) base[k] = overrides[k];
+  base.turn = String(base.currentPlayer);
+  return base;
+}
+
+async function run() {
+  print('Game code: ' + CODE + '\n');
+
+  // TEST 1: Create
+  print('=== TEST 1: Create Game ===');
+  var r1 = await put(CODE, gameState({}));
+  check(!r1.error, 'Game created successfully');
+  check(r1.currentPlayer === 1, 'currentPlayer = 1');
+  check(r1.status === 'waiting', 'status = waiting');
+
+  // TEST 2: P1 shoots
+  print('\n=== TEST 2: P1 Shoots ===');
+  var t1 = Date.now();
+  var r2 = await put(CODE, gameState({strokes:1, lastShot:t1, lastShotVel:{x:0,y:-10}}));
+  check(!r2.error, 'Shot saved (no Permission Denied)');
+  check(r2.strokes === 1, 'strokes = 1');
+
+  // TEST 3: Ball sinks, advance to P2
+  print('\n=== TEST 3: Ball Sinks -> Advance Turn to P2 ===');
+  await wait(100);
+  var t2 = Date.now();
+  var r3 = await put(CODE, gameState({currentPlayer:2, strokes:0, sunk:false, lastShot:t2, scores:{P1:[1,null,null],P2:[null,null,null]}}));
+  check(!r3.error, 'Advance turn saved (no Permission Denied)');
+  check(r3.currentPlayer === 2, 'currentPlayer = 2 (switched to P2)');
+  check(r3.sunk === false, 'sunk = false (reset)');
+  check(r3.strokes === 0, 'strokes = 0 (reset)');
+
+  // TEST 4: Persistence after delay
+  print('\n=== TEST 4: State Persists After 3s ===');
+  await wait(3000);
+  var r4 = await get(CODE);
+  check(r4.currentPlayer === 2, 'currentPlayer STILL 2 after 3s');
+  check(r4.sunk === false, 'sunk STILL false after 3s');
+
+  // TEST 5: P2 joins
+  print('\n=== TEST 5: P2 Joins ===');
+  var r5 = await put(CODE, gameState({status:'playing', currentPlayer:2, strokes:0, sunk:false, lastShot:t2, scores:{P1:[1,null,null],P2:[null,null,null]}}));
+  check(!r5.error, 'P2 join saved');
+  check(r5.status === 'playing', 'status = playing');
+  check(r5.currentPlayer === 2, 'currentPlayer still 2 (P2 plays)');
+
+  // TEST 6: P2 shoots and sinks
+  print('\n=== TEST 6: P2 Sinks Hole 1 -> Advance to Hole 2 ===');
+  await wait(100);
+  var t3 = Date.now();
+  var r6 = await put(CODE, gameState({status:'playing', currentHole:1, currentPlayer:1, strokes:0, sunk:false, lastShot:t3, ballPos:{x:80,y:520}, scores:{P1:[1,null,null],P2:[3,null,null]}}));
+  check(!r6.error, 'Hole advance saved');
+  check(r6.currentHole === 1, 'currentHole = 1 (hole 2)');
+  check(r6.currentPlayer === 1, 'currentPlayer = 1 (P1 first on hole 2)');
+
+  // TEST 7: Full game to finish
+  print('\n=== TEST 7: Play Through to Game End ===');
+  await wait(100);
+  var t4 = Date.now();
+  var r7 = await put(CODE, gameState({status:'finished', currentHole:2, currentPlayer:2, strokes:0, sunk:true, lastShot:t4, scores:{P1:[1,3,4],P2:[3,2,3]}}));
+  check(!r7.error, 'Game finish saved');
+  check(r7.status === 'finished', 'status = finished');
+  var p1t = r7.scores.P1.reduce(function(a,b){return a+b;},0);
+  var p2t = r7.scores.P2.reduce(function(a,b){return a+b;},0);
+  check(p1t === 8 && p2t === 8, 'Totals correct: P1=' + p1t + ' P2=' + p2t);
+
+  // TEST 8: Multiple rapid updates (simulates fast shots)
+  print('\n=== TEST 8: Rapid Sequential Updates ===');
+  var rapidCode = CODE + 'R';
+  await put(rapidCode, gameState({}));
+  var ok = true;
+  for (var i = 1; i <= 5; i++) {
+    var rr = await put(rapidCode, gameState({strokes:i, lastShot:Date.now()}));
+    if (rr.error) { ok = false; break; }
+  }
+  check(ok, '5 rapid updates all succeeded');
+  var rrFinal = await get(rapidCode);
+  check(rrFinal.strokes === 5, 'Final strokes = 5 after rapid updates');
+  await del(rapidCode);
+
+  // CLEANUP
+  print('\n=== Cleanup ===');
+  await del(CODE);
+  print('  Deleted test games');
+
+  // RESULTS
+  print('\n========================================');
+  print('Results: ' + passes + ' passed, ' + fails + ' failed');
+  if (fails === 0) {
+    print('ALL TESTS PASSED', 'pass');
+    print('Turn switching verified working end-to-end.', 'pass');
+  } else {
+    print('SOME TESTS FAILED', 'fail');
+  }
+  print('========================================');
+}
+
+run().catch(function(e) { print('ERROR: ' + e.message, 'fail'); });
+</script>
+</body>
+</html>

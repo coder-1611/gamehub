@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crazy 8</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@600;700;800;900&display=swap');
+
+:root{--red:#D32F2F;--yellow:#F9A825;--green:#388E3C;--blue:#1565C0;--felt:#6B1B1B;--felt-dark:#4A1212}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif}
+
+#game-container{width:100vw;height:100vh;background:radial-gradient(ellipse at center,#8B2525 0%,#6B1B1B 40%,#4A1212 100%);position:relative;user-select:none}
+#game-container::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background-image:radial-gradient(ellipse at 30% 30%,rgba(255,255,255,0.03) 0%,transparent 50%),radial-gradient(ellipse at 70% 60%,rgba(255,255,255,0.02) 0%,transparent 40%);pointer-events:none;z-index:0}
+
+/* ===== SCREENS ===== */
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;background:radial-gradient(ellipse at center,#8B2525 0%,#6B1B1B 40%,#4A1212 100%)}
+.screen.active{display:flex}
+
+.screen h1{font-family:'Fredoka One',cursive;font-size:60px;color:#FFD54F;text-shadow:3px 3px 0 #4A1212,0 0 20px rgba(255,213,79,0.3);margin-bottom:6px}
+.screen .subtitle{color:rgba(255,255,255,0.5);font-size:15px;margin-bottom:36px}
+
+.panel{background:rgba(0,0,0,0.3);border-radius:16px;padding:28px 36px;margin-bottom:16px;min-width:380px}
+.panel label{color:#FFD54F;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:10px}
+.panel input{width:100%;padding:12px 16px;border:2px solid rgba(255,213,79,0.3);border-radius:10px;background:rgba(0,0,0,0.3);color:white;font-size:18px;font-family:'Nunito',sans-serif;font-weight:700;outline:none;transition:border-color .2s}
+.panel input:focus{border-color:#FFD54F}
+.panel input::placeholder{color:rgba(255,255,255,0.3)}
+
+.btn-row{display:flex;gap:10px}
+.btn-count{flex:1;padding:14px;border:2px solid rgba(255,213,79,0.3);border-radius:10px;background:rgba(0,0,0,0.3);color:white;font-size:24px;font-family:'Fredoka One',cursive;cursor:pointer;transition:all .2s}
+.btn-count:hover{border-color:#FFD54F;background:rgba(255,213,79,0.1)}
+.btn-count.selected{border-color:#FFD54F;background:rgba(255,213,79,0.25);color:#FFD54F}
+
+.btn-primary{padding:15px 55px;border:none;border-radius:12px;background:linear-gradient(135deg,#FFD54F,#FFB300);color:#4A1212;font-family:'Fredoka One',cursive;font-size:20px;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 15px rgba(255,213,79,0.3);margin-top:24px}
+.btn-primary:hover{transform:scale(1.05);box-shadow:0 6px 25px rgba(255,213,79,0.5)}
+
+.btn-secondary{padding:13px 40px;border:2px solid rgba(255,213,79,0.4);border-radius:12px;background:rgba(0,0,0,0.3);color:#FFD54F;font-family:'Fredoka One',cursive;font-size:17px;cursor:pointer;transition:all .15s}
+.btn-secondary:hover{background:rgba(255,213,79,0.15);border-color:#FFD54F}
+
+.mode-buttons{display:flex;gap:16px;margin-bottom:10px}
+.mode-btn{flex:1;padding:30px 20px;border:2px solid rgba(255,213,79,0.2);border-radius:16px;background:rgba(0,0,0,0.25);cursor:pointer;transition:all .2s;text-align:center}
+.mode-btn:hover{border-color:#FFD54F;background:rgba(255,213,79,0.1)}
+.mode-btn .icon{font-size:40px;margin-bottom:8px}
+.mode-btn .label{color:white;font-weight:800;font-size:16px}
+.mode-btn .desc{color:rgba(255,255,255,0.4);font-size:12px;margin-top:4px}
+
+/* Lobby */
+.lobby-code{font-family:'Fredoka One',cursive;font-size:48px;color:#FFD54F;letter-spacing:8px;text-shadow:0 0 20px rgba(255,213,79,0.4);user-select:text;cursor:text}
+.lobby-status{color:rgba(255,255,255,0.6);font-size:15px;margin-top:12px}
+.lobby-players{margin-top:20px;display:flex;flex-direction:column;gap:8px;min-width:300px}
+.lobby-player{display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(255,255,255,0.06);border-radius:10px}
+.lobby-player .lp-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px}
+.lobby-player .lp-name{color:white;font-weight:700;font-size:15px;flex:1}
+.lobby-player .lp-status{font-size:12px;color:#4CAF50;font-weight:700}
+.waiting-dots::after{content:'';animation:dots 1.5s steps(4,end) infinite}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+.back-link{color:rgba(255,255,255,0.4);font-size:13px;cursor:pointer;margin-top:20px;transition:color .2s}
+.back-link:hover{color:white}
+
+/* ===== GAME TABLE ===== */
+#table{display:none;width:100%;height:100%;position:relative;z-index:1}
+
+/* ===== TURN BANNER ===== */
+#turn-banner{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:center;gap:12px;z-index:40;background:linear-gradient(180deg,rgba(0,0,0,0.6) 0%,transparent 100%);pointer-events:none;transition:all .4s}
+#turn-banner .turn-text{font-family:'Fredoka One',cursive;font-size:20px;color:rgba(255,255,255,0.7);text-shadow:0 2px 8px rgba(0,0,0,0.5);transition:all .4s}
+#turn-banner .turn-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);flex-shrink:0;transition:all .4s}
+#turn-banner.your-turn{background:linear-gradient(180deg,rgba(255,213,79,0.25) 0%,transparent 100%)}
+#turn-banner.your-turn .turn-text{color:#FFD54F;font-size:26px;text-shadow:0 0 20px rgba(255,213,79,0.5),0 2px 8px rgba(0,0,0,0.5);animation:turn-pulse-text 1.5s ease-in-out infinite}
+#turn-banner.your-turn .turn-dot{background:#FFD54F;border-color:#FFD54F;box-shadow:0 0 14px rgba(255,213,79,0.8);animation:turn-pulse-dot 1.5s ease-in-out infinite}
+@keyframes turn-pulse-text{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.85;transform:scale(1.03)}}
+@keyframes turn-pulse-dot{0%,100%{box-shadow:0 0 14px rgba(255,213,79,0.8)}50%{box-shadow:0 0 24px rgba(255,213,79,1),0 0 40px rgba(255,213,79,0.4)}}
+
+/* ===== PLAYER SLOTS ===== */
+.player-slot{position:absolute;display:flex;align-items:center;gap:12px;z-index:10;transition:all .3s}
+.player-slot.top{top:55px;left:50%;transform:translateX(-50%);flex-direction:column}
+.player-slot.left{left:20px;top:50%;transform:translateY(-50%);flex-direction:row}
+.player-slot.right{right:20px;top:50%;transform:translateY(-50%);flex-direction:row-reverse}
+.player-slot.top-left{top:70px;left:80px;flex-direction:row}
+.player-slot.top-right{top:70px;right:80px;flex-direction:row-reverse}
+
+.player-info{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
+.avatar{width:56px;height:56px;border-radius:50%;border:3px solid rgba(255,255,255,0.2);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;transition:all .3s}
+.avatar-face{font-size:30px;line-height:1}
+
+.player-slot.active-turn .avatar{border-color:#FFD54F;box-shadow:0 0 20px rgba(255,213,79,0.8),0 0 45px rgba(255,213,79,0.3);animation:avatar-glow 1.5s ease-in-out infinite}
+.player-slot.active-turn .player-name{color:#FFD54F;font-size:14px;text-shadow:0 0 10px rgba(255,213,79,0.5)}
+.player-slot.active-turn .avatar::before{content:'';position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(255,213,79,0.4);animation:ring-expand 1.5s ease-in-out infinite;pointer-events:none;z-index:-1}
+@keyframes avatar-glow{0%,100%{box-shadow:0 0 20px rgba(255,213,79,0.8),0 0 45px rgba(255,213,79,0.3)}50%{box-shadow:0 0 30px rgba(255,213,79,1),0 0 60px rgba(255,213,79,0.5)}}
+@keyframes ring-expand{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.15);opacity:0}}
+
+.card-count-badge{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:linear-gradient(135deg,#FFD54F,#FF8F00);color:#4A1212;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #4A1212;z-index:5;padding:0 4px}
+.player-name{color:white;font-size:13px;font-weight:800;text-shadow:1px 1px 3px rgba(0,0,0,0.5);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
+
+.opponent-cards{display:flex}
+.card-back{width:50px;height:72px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:6px;border:2px solid #333;position:relative;box-shadow:2px 2px 8px rgba(0,0,0,0.4);flex-shrink:0}
+.card-back::after{content:'CRAZY 8';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);color:rgba(255,255,255,0.15);font-family:'Fredoka One',cursive;font-size:9px;letter-spacing:1px;white-space:nowrap}
+.card-back+.card-back{margin-left:-35px}
+
+/* ===== DIRECTION RING ===== */
+#direction-ring{position:absolute;top:50%;left:50%;width:220px;height:220px;transform:translate(-50%,-50%);z-index:2;pointer-events:none}
+.dir-arrow{position:absolute;font-size:22px;color:rgba(255,255,255,0.35);font-weight:900;transition:all .5s}
+.dir-arrow.cw-top{top:0;left:50%;transform:translateX(-50%)}
+.dir-arrow.cw-right{right:0;top:50%;transform:translateY(-50%)}
+.dir-arrow.cw-bottom{bottom:0;left:50%;transform:translateX(-50%)}
+.dir-arrow.cw-left{left:0;top:50%;transform:translateY(-50%)}
+
+#direction-label{position:absolute;top:50%;left:50%;transform:translate(-50%,80px);color:rgba(255,255,255,0.25);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;white-space:nowrap;z-index:3;pointer-events:none}
+
+/* ===== CENTER ===== */
+#center-area{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:16px;z-index:5}
+#draw-pile-container{width:75px;height:108px;position:relative;cursor:pointer;transition:transform .15s}
+#draw-pile-container:hover{transform:scale(1.05)}
+#draw-pile-container.disabled{pointer-events:none;opacity:0.6}
+.draw-card-back{width:75px;height:108px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:8px;border:2px solid #444;position:absolute;box-shadow:2px 2px 10px rgba(0,0,0,0.5)}
+.draw-card-back:nth-child(1){top:0;left:0}
+.draw-card-back:nth-child(2){top:-2px;left:-2px}
+.draw-card-back:nth-child(3){top:-4px;left:-4px}
+.draw-card-back:last-child::after{content:'CRAZY 8';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);color:rgba(255,255,255,0.2);font-family:'Fredoka One',cursive;font-size:12px;letter-spacing:2px;white-space:nowrap}
+#draw-hint{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;white-space:nowrap;opacity:0;transition:opacity .2s}
+#draw-pile-container:hover #draw-hint{opacity:1}
+
+#discard-pile{width:75px;height:108px;position:relative}
+#discard-pile .game-card{position:absolute;top:0;left:0}
+#discard-color-ring{position:absolute;top:-5px;left:-5px;right:-5px;bottom:-5px;border-radius:12px;border:3px solid transparent;pointer-events:none;transition:border-color .3s}
+
+/* ===== GAME CARD ===== */
+.game-card{width:75px;height:108px;border-radius:8px;border:3px solid white;position:relative;cursor:pointer;box-shadow:2px 2px 10px rgba(0,0,0,0.3);transition:transform .2s ease,box-shadow .2s ease;overflow:hidden;flex-shrink:0}
+.game-card.red{background:linear-gradient(135deg,#E53935,#C62828)}
+.game-card.yellow{background:linear-gradient(135deg,#FDD835,#F9A825)}
+.game-card.green{background:linear-gradient(135deg,#43A047,#2E7D32)}
+.game-card.blue{background:linear-gradient(135deg,#1E88E5,#1565C0)}
+.game-card.wild{background:linear-gradient(135deg,#333,#111)}
+
+.card-corner{position:absolute;top:5px;left:7px}
+.card-corner-num{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:white}
+.card-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Fredoka One',cursive;font-size:40px;color:white;text-shadow:2px 2px 4px rgba(0,0,0,0.3)}
+.card-corner-bottom{position:absolute;bottom:5px;right:7px;transform:rotate(180deg)}
+.card-corner-bottom .card-corner-num{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:white}
+.card-icon{font-size:36px;line-height:1}
+.card-icon-small{font-size:10px;font-weight:900}
+
+/* ===== PLAYER HAND ===== */
+#player-hand-area{position:absolute;bottom:0;left:0;right:0;height:170px;display:flex;align-items:flex-end;justify-content:center;z-index:20;padding-bottom:10px;transition:all .3s}
+#player-hand-area.my-turn{background:linear-gradient(0deg,rgba(255,213,79,0.1) 0%,transparent 70%);border-top:2px solid rgba(255,213,79,0.15)}
+#player-hand{display:flex;align-items:flex-end;justify-content:center;padding:0 20px;position:relative}
+#player-hand .game-card{width:80px;height:115px;flex-shrink:0;margin-left:-12px;transition:transform .2s ease,opacity .2s}
+#player-hand .game-card:first-child{margin-left:0}
+#player-hand .game-card:hover{transform:translateY(-20px);z-index:30;box-shadow:0 8px 25px rgba(0,0,0,0.5)}
+#player-hand .game-card.playable{cursor:pointer}
+#player-hand .game-card:not(.playable){opacity:0.5;cursor:not-allowed}
+#player-hand .game-card.playable:hover{transform:translateY(-25px) scale(1.05)}
+
+#player-hand-info{position:absolute;bottom:145px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;z-index:20}
+
+/* ===== CURRENT COLOR ===== */
+#current-color-indicator{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;z-index:15;opacity:0;transition:opacity .3s}
+#current-color-indicator.show{opacity:1}
+#current-color-dot{width:18px;height:18px;border-radius:50%;border:2px solid white}
+#current-color-label{color:white;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+
+/* ===== COLOR PICKER ===== */
+#color-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+#color-picker-overlay.show{display:flex}
+#color-picker{background:rgba(30,30,30,0.95);border-radius:20px;padding:30px;text-align:center;border:2px solid rgba(255,255,255,0.1)}
+#color-picker h3{color:white;font-family:'Fredoka One',cursive;font-size:22px;margin-bottom:20px}
+.color-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.color-option{width:80px;height:80px;border-radius:16px;border:3px solid rgba(255,255,255,0.2);cursor:pointer;transition:transform .15s,border-color .15s;display:flex;align-items:center;justify-content:center;font-family:'Fredoka One',cursive;font-size:14px;color:white;text-shadow:1px 1px 3px rgba(0,0,0,0.5)}
+.color-option:hover{transform:scale(1.1);border-color:white}
+.color-option.opt-red{background:linear-gradient(135deg,#E53935,#C62828)}
+.color-option.opt-yellow{background:linear-gradient(135deg,#FDD835,#F9A825)}
+.color-option.opt-green{background:linear-gradient(135deg,#43A047,#2E7D32)}
+.color-option.opt-blue{background:linear-gradient(135deg,#1E88E5,#1565C0)}
+
+/* ===== TOAST ===== */
+#status-bar{position:absolute;top:50%;left:50%;transform:translate(-50%,-85px);z-index:50;pointer-events:none}
+.toast{background:rgba(0,0,0,0.8);color:white;padding:10px 24px;border-radius:30px;font-weight:800;font-size:14px;white-space:nowrap;opacity:0;transform:translateY(10px);animation:toast-in .3s ease forwards}
+@keyframes toast-in{to{opacity:1;transform:translateY(0)}}
+.toast.fade-out{animation:toast-out .3s ease forwards}
+@keyframes toast-out{to{opacity:0;transform:translateY(-10px)}}
+
+/* ===== CHAT BUBBLE ===== */
+.chat-bubble{position:absolute;background:#3b5998;color:white;padding:6px 14px;border-radius:14px;font-size:13px;font-weight:700;white-space:nowrap;z-index:15;animation:bubble-in .3s ease;pointer-events:none;bottom:-30px;left:50%;transform:translateX(-50%)}
+@keyframes bubble-in{from{opacity:0;transform:translateX(-50%) scale(0.8)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+
+/* ===== GAME OVER ===== */
+#game-over-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:300;backdrop-filter:blur(6px)}
+#game-over-overlay.show{display:flex}
+#game-over-panel{background:linear-gradient(135deg,#2d1b1b,#1a1010);border-radius:24px;padding:40px 50px;text-align:center;border:2px solid rgba(255,213,79,0.3);min-width:350px}
+#game-over-panel h2{font-family:'Fredoka One',cursive;font-size:36px;color:#FFD54F;margin-bottom:10px}
+#winner-name{color:white;font-size:20px;font-weight:800;margin-bottom:30px}
+#scoreboard{text-align:left;margin-bottom:30px}
+.score-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);font-weight:700}
+.score-row.winner{color:#FFD54F}
+
+/* ===== CRAZY 8 CALL ===== */
+#crazy8-call-btn{position:absolute;bottom:190px;right:30px;padding:10px 20px;background:linear-gradient(135deg,#FF6F00,#E65100);color:white;border:3px solid #FFD54F;border-radius:14px;font-family:'Fredoka One',cursive;font-size:16px;cursor:pointer;z-index:25;display:none;animation:pulse-btn 1s ease-in-out infinite;box-shadow:0 4px 15px rgba(255,111,0,0.4)}
+@keyframes pulse-btn{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+
+/* ===== PASS BTN ===== */
+#pass-btn{position:absolute;bottom:190px;left:30px;padding:10px 20px;background:rgba(255,255,255,0.15);color:white;border:2px solid rgba(255,255,255,0.3);border-radius:14px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;z-index:25;display:none;transition:all .2s}
+#pass-btn:hover{background:rgba(255,255,255,0.25)}
+
+#help-btn{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);color:white;font-size:20px;font-weight:900;cursor:pointer;z-index:50;display:flex;align-items:center;justify-content:center;transition:background .2s}
+#help-btn:hover{background:rgba(255,255,255,0.25)}
+#menu-btn{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);color:white;font-size:22px;cursor:pointer;z-index:50;display:flex;align-items:center;justify-content:center;transition:background .2s}
+#menu-btn:hover{background:rgba(255,255,255,0.25)}
+
+/* Turn order sidebar */
+#turn-order{position:absolute;right:16px;top:60px;display:flex;flex-direction:column;gap:4px;z-index:40}
+.turn-order-item{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:8px;background:rgba(0,0,0,0.2);transition:all .3s;font-size:12px;font-weight:700;color:rgba(255,255,255,0.4)}
+.turn-order-item.current{background:rgba(255,213,79,0.25);color:#FFD54F;font-size:13px;padding:7px 12px 7px 8px;border:1px solid rgba(255,213,79,0.4);box-shadow:0 0 12px rgba(255,213,79,0.15)}
+.turn-order-item .to-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.turn-order-item.current .to-avatar{box-shadow:0 0 8px rgba(255,213,79,0.4)}
+.turn-order-item .to-arrow{margin-left:auto;font-size:10px;opacity:0.3}
+.turn-order-item.current .to-arrow{opacity:1;color:#FFD54F}
+
+@media(max-width:768px){
+  #player-hand .game-card{width:65px;height:95px;margin-left:-15px}
+  .card-back{width:40px;height:58px}
+  .avatar{width:44px;height:44px}
+  .avatar-face{font-size:24px}
+  .panel{min-width:320px;padding:22px 28px}
+  .screen h1{font-size:44px}
+}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- ===== MAIN MENU ===== -->
+  <div class="screen active" id="screen-menu">
+    <h1>CRAZY 8</h1>
+    <p class="subtitle">The classic card game</p>
+    <div class="panel">
+      <label>Your Name</label>
+      <input type="text" id="input-name" placeholder="Enter your name..." maxlength="15" value="">
+    </div>
+    <div class="panel">
+      <label>Game Mode</label>
+      <div class="mode-buttons">
+        <div class="mode-btn" onclick="showScreen('screen-ai-setup')">
+          <div class="icon">🤖</div>
+          <div class="label">vs AI</div>
+          <div class="desc">Play against bots</div>
+        </div>
+        <div class="mode-btn" onclick="showScreen('screen-online-menu')">
+          <div class="icon">🌐</div>
+          <div class="label">Online</div>
+          <div class="desc">Play with friends</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== AI SETUP ===== -->
+  <div class="screen" id="screen-ai-setup">
+    <h1>CRAZY 8</h1>
+    <p class="subtitle">Play vs AI</p>
+    <div class="panel">
+      <label>Number of Players</label>
+      <div class="btn-row" id="ai-count-row">
+        <button class="btn-count" data-count="3">3</button>
+        <button class="btn-count selected" data-count="4">4</button>
+        <button class="btn-count" data-count="5">5</button>
+        <button class="btn-count" data-count="6">6</button>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="startAIGame()">PLAY</button>
+    <div class="back-link" onclick="showScreen('screen-menu')">← Back</div>
+  </div>
+
+  <!-- ===== ONLINE MENU ===== -->
+  <div class="screen" id="screen-online-menu">
+    <h1>CRAZY 8</h1>
+    <p class="subtitle">Online Multiplayer</p>
+    <div class="panel">
+      <label>Number of Players</label>
+      <div class="btn-row" id="online-count-row">
+        <button class="btn-count" data-count="3">3</button>
+        <button class="btn-count selected" data-count="4">4</button>
+        <button class="btn-count" data-count="5">5</button>
+        <button class="btn-count" data-count="6">6</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:24px">
+      <button class="btn-primary" onclick="createOnlineGame()" style="margin-top:0">CREATE GAME</button>
+      <button class="btn-secondary" onclick="showScreen('screen-join')">JOIN GAME</button>
+    </div>
+    <div class="back-link" onclick="showScreen('screen-menu')">← Back</div>
+  </div>
+
+  <!-- ===== JOIN SCREEN ===== -->
+  <div class="screen" id="screen-join">
+    <h1>CRAZY 8</h1>
+    <p class="subtitle">Join a game</p>
+    <div class="panel">
+      <label>Game Code</label>
+      <input type="text" id="input-code" placeholder="Enter 5-letter code..." maxlength="5" style="text-align:center;font-family:'Fredoka One',cursive;font-size:28px;letter-spacing:6px;text-transform:uppercase">
+    </div>
+    <button class="btn-primary" onclick="joinOnlineGame()">JOIN</button>
+    <div class="back-link" onclick="showScreen('screen-online-menu')">← Back</div>
+  </div>
+
+  <!-- ===== LOBBY ===== -->
+  <div class="screen" id="screen-lobby">
+    <h1>CRAZY 8</h1>
+    <p class="subtitle">Waiting for players...</p>
+    <div class="panel" style="text-align:center">
+      <label>Game Code</label>
+      <div class="lobby-code" id="lobby-code">-----</div>
+      <div class="lobby-status">Share this code with your friends</div>
+    </div>
+    <div class="panel">
+      <label>Players</label>
+      <div class="lobby-players" id="lobby-players"></div>
+    </div>
+    <div class="lobby-status" id="lobby-waiting">Waiting for players<span class="waiting-dots"></span></div>
+    <div class="back-link" onclick="leaveLobby()">← Leave</div>
+  </div>
+
+  <!-- ===== GAME TABLE ===== -->
+  <div id="table">
+    <button id="help-btn" onclick="showHelp()">?</button>
+    <button id="menu-btn" onclick="leaveGame()">&#9776;</button>
+
+    <!-- Turn banner -->
+    <div id="turn-banner">
+      <div class="turn-dot" id="turn-dot"></div>
+      <div class="turn-text" id="turn-text">Waiting...</div>
+    </div>
+
+    <!-- Turn order sidebar -->
+    <div id="turn-order"></div>
+
+    <!-- Direction ring -->
+    <div id="direction-ring"></div>
+    <div id="direction-label"></div>
+
+    <!-- Opponents -->
+    <div id="opponents-container"></div>
+
+    <!-- Center -->
+    <div id="center-area">
+      <div id="draw-pile-container" onclick="game.drawCard()">
+        <div class="draw-card-back"></div>
+        <div class="draw-card-back"></div>
+        <div class="draw-card-back"></div>
+        <div id="draw-hint">Draw a card</div>
+      </div>
+      <div id="discard-pile">
+        <div id="discard-color-ring"></div>
+      </div>
+      <div id="current-color-indicator">
+        <div id="current-color-dot"></div>
+        <span id="current-color-label"></span>
+      </div>
+    </div>
+
+    <div id="status-bar"></div>
+
+    <div id="player-hand-info">
+      <div class="player-info">
+        <div class="avatar" id="player-avatar" style="width:48px;height:48px">
+          <div class="avatar-face" id="player-avatar-face"></div>
+          <div class="card-count-badge" id="player-card-count">0</div>
+        </div>
+        <div class="player-name" id="player-name-display"></div>
+      </div>
+    </div>
+
+    <div id="player-hand-area">
+      <div id="player-hand"></div>
+    </div>
+
+    <button id="crazy8-call-btn" onclick="game.callCrazy8()">CRAZY 8!</button>
+    <button id="pass-btn" onclick="game.passTurn()">PASS</button>
+  </div>
+
+  <!-- Color picker -->
+  <div id="color-picker-overlay">
+    <div id="color-picker">
+      <h3>Choose a color</h3>
+      <div class="color-options">
+        <div class="color-option opt-red" onclick="game.pickColor('red')">Red</div>
+        <div class="color-option opt-blue" onclick="game.pickColor('blue')">Blue</div>
+        <div class="color-option opt-green" onclick="game.pickColor('green')">Green</div>
+        <div class="color-option opt-yellow" onclick="game.pickColor('yellow')">Yellow</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="game-over-overlay">
+    <div id="game-over-panel">
+      <h2>Game Over!</h2>
+      <div id="winner-name"></div>
+      <div id="scoreboard"></div>
+      <button class="btn-primary" id="btn-play-again" onclick="game.restart()">Play Again</button>
+      <div class="back-link" style="margin-top:16px" onclick="leaveGame()">← Main Menu</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== FIREBASE =====
+var FIREBASE_URL = 'https://gamehub-cce9d-default-rtdb.firebaseio.com';
+
+function firebaseSave(code, data) {
+  // Firebase rules require board + turn fields and /games/ path
+  if (!data.board) data.board = '_';
+  if (!data.turn) data.turn = '1';
+  return fetch(FIREBASE_URL + '/games/' + code + '.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+function firebaseLoad(code) {
+  return fetch(FIREBASE_URL + '/games/' + code + '.json').then(function(r) { return r.json(); });
+}
+
+function firebaseDelete(code) {
+  return fetch(FIREBASE_URL + '/games/' + code + '.json', { method: 'DELETE' });
+}
+
+function generateCode() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
+
+// ===== SCREEN MANAGEMENT =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  document.getElementById('table').style.display = 'none';
+}
+
+function getPlayerName() {
+  return document.getElementById('input-name').value.trim() || 'Player';
+}
+
+// Setup count selectors
+document.querySelectorAll('.btn-row').forEach(function(row) {
+  row.querySelectorAll('.btn-count').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      row.querySelectorAll('.btn-count').forEach(function(b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+    });
+  });
+});
+
+function getSelectedCount(rowId) {
+  var el = document.querySelector('#' + rowId + ' .btn-count.selected');
+  return el ? parseInt(el.dataset.count) : 4;
+}
+
+// ===== CONSTANTS =====
+var COLORS = ['red', 'yellow', 'green', 'blue'];
+var VALUES = ['0','1','2','3','4','5','6','7','8','9','skip','reverse','draw2'];
+var AVATARS = ['😎','😤','🤩','🤢','😈','🤠','👻','🥳','😺','🤖'];
+var AVATAR_COLORS = ['#2196F3','#E91E63','#FF9800','#4CAF50','#9C27B0','#00BCD4'];
+var BOT_NAMES = ['Lisa2744','Chris','SICKO MODE','viv','Moan King','BigDawg','xXSlayerXx','NoobMaster','Karen99'];
+var BOT_PHRASES = ['omfg {name} stop','bruh','nice one...','are you kidding me','lets gooo','no way','gg','im done','WHAT','lmaooo','this game is rigged','how??','ez clap','pain.','yooo'];
+var SPECIAL_ICONS = { skip: '⊘', reverse: '⟳', draw2: '+2', wild: '★', wild4: '+4' };
+
+// ===== CARD =====
+function Card(color, value) {
+  this.color = color;
+  this.value = value;
+  this.id = color + '_' + value + '_' + Math.random().toString(36).substr(2, 5);
+}
+Card.prototype = {
+  get isSpecial() { return ['skip','reverse','draw2'].indexOf(this.value) >= 0; },
+  get isWild() { return this.color === 'wild'; },
+  get displayValue() {
+    if (this.isWild) return SPECIAL_ICONS[this.value];
+    if (this.isSpecial) return SPECIAL_ICONS[this.value];
+    return this.value;
+  },
+  get points() {
+    if (this.isWild) return 50;
+    if (this.isSpecial) return 20;
+    return parseInt(this.value) || 0;
+  },
+  canPlayOn: function(topCard, currentColor) {
+    if (this.isWild) return true;
+    if (this.color === currentColor) return true;
+    if (this.value === topCard.value && !topCard.isWild) return true;
+    return false;
+  },
+  toJSON: function() { return { color: this.color, value: this.value, id: this.id }; },
+};
+
+function cardFromJSON(obj) {
+  var c = new Card(obj.color, obj.value);
+  c.id = obj.id;
+  return c;
+}
+
+function buildDeck() {
+  var deck = [];
+  COLORS.forEach(function(color) {
+    deck.push(new Card(color, '0'));
+    for (var i = 0; i < 2; i++) {
+      VALUES.slice(1).forEach(function(v) { deck.push(new Card(color, v)); });
+    }
+  });
+  for (var i = 0; i < 4; i++) {
+    deck.push(new Card('wild', 'wild'));
+    deck.push(new Card('wild', 'wild4'));
+  }
+  return deck;
+}
+
+function shuffle(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  return arr;
+}
+
+// ===== GAME ENGINE =====
+function CrazyEightGame() {
+  this.mode = null; // 'ai' or 'online'
+  this.pollTimer = null;
+  this.lastSyncTimestamp = 0;
+  this.myPlayerIndex = 0;
+  this.gameCode = null;
+  this.drewThisTurn = false;
+}
+
+CrazyEightGame.prototype = {
+  // ===== INIT =====
+  initAI: function(playerCount) {
+    this.mode = 'ai';
+    this.myPlayerIndex = 0;
+    this.playerCount = playerCount;
+    this.playerName = getPlayerName();
+
+    this.setupState();
+
+    // Create bot players
+    var shuffledNames = shuffle(BOT_NAMES.slice());
+    var shuffledAvatars = shuffle(AVATARS.slice(1));
+    for (var i = 1; i < this.playerCount; i++) {
+      this.players[i] = {
+        name: shuffledNames[i - 1] || 'Bot' + i,
+        hand: [],
+        isHuman: false,
+        avatar: shuffledAvatars[i - 1] || '🤖',
+        avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+      };
+    }
+
+    this.dealCards();
+    this.showTable();
+    this.renderAll();
+
+    if (this.currentPlayerIndex !== 0) {
+      var self = this;
+      setTimeout(function() { self.botTurn(); }, 1000);
+    }
+  },
+
+  initOnline: function(data, code, myIndex) {
+    this.mode = 'online';
+    this.gameCode = code;
+    this.myPlayerIndex = myIndex;
+    this.loadStateFromFirebase(data);
+    this.showTable();
+    this.renderAll();
+    this.startPolling();
+  },
+
+  setupState: function() {
+    this.deck = shuffle(buildDeck());
+    this.discardPile = [];
+    this.direction = 1;
+    this.currentPlayerIndex = 0;
+    this.currentColor = null;
+    this.gameOver = false;
+    this.mustDraw = 0;
+    this.skipNext = false;
+    this.calledCrazy8 = false;
+    this.pendingColorPick = false;
+    this.animating = false;
+    this.drewThisTurn = false;
+    this.actionTimestamp = Date.now();
+
+    this.players = [];
+    this.players.push({
+      name: this.playerName || getPlayerName(),
+      hand: [],
+      isHuman: true,
+      avatar: '😎',
+      avatarColor: AVATAR_COLORS[0],
+    });
+  },
+
+  dealCards: function() {
+    for (var i = 0; i < 7; i++) {
+      for (var p = 0; p < this.players.length; p++) {
+        this.players[p].hand.push(this.deck.pop());
+      }
+    }
+    // First discard: must be a number card
+    var firstCard;
+    for (var tries = 0; tries < 100; tries++) {
+      firstCard = this.deck.pop();
+      if (!firstCard.isWild && !firstCard.isSpecial) break;
+      this.deck.unshift(firstCard);
+      shuffle(this.deck);
+      firstCard = null;
+    }
+    if (!firstCard) { firstCard = new Card('red', '0'); }
+    this.discardPile.push(firstCard);
+    this.currentColor = firstCard.color;
+  },
+
+  showTable: function() {
+    document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+    document.getElementById('table').style.display = 'block';
+  },
+
+  // ===== RENDERING =====
+  renderAll: function() {
+    this.renderOpponents();
+    this.renderHand();
+    this.renderDiscard();
+    this.renderDirection();
+    this.renderTurnBanner();
+    this.renderTurnOrder();
+    this.updateCardCounts();
+    this.updateColorIndicator();
+    this.updateDrawPile();
+    this.updatePassBtn();
+
+    var self = this;
+    var me = this.players[this.myPlayerIndex];
+    document.getElementById('player-avatar-face').textContent = me.avatar;
+    document.getElementById('player-avatar').style.background = me.avatarColor;
+    document.getElementById('player-name-display').textContent = me.name;
+  },
+
+  renderOpponents: function() {
+    var container = document.getElementById('opponents-container');
+    container.innerHTML = '';
+    var positions = this.getOpponentPositions();
+    var opIdx = 0;
+    for (var i = 0; i < this.players.length; i++) {
+      if (i === this.myPlayerIndex) continue;
+      var player = this.players[i];
+      var pos = positions[opIdx++];
+      var slot = document.createElement('div');
+      slot.className = 'player-slot ' + pos;
+      slot.id = 'player-slot-' + i;
+      var active = i === this.currentPlayerIndex ? ' active-turn' : '';
+      if (active) slot.classList.add('active-turn');
+      slot.innerHTML =
+        '<div class="player-info">' +
+          '<div class="avatar" style="background:' + player.avatarColor + '">' +
+            '<div class="avatar-face">' + player.avatar + '</div>' +
+            '<div class="card-count-badge" id="count-' + i + '">' + player.hand.length + '</div>' +
+          '</div>' +
+          '<div class="player-name">' + player.name + '</div>' +
+        '</div>' +
+        '<div class="opponent-cards" id="cards-' + i + '">' + this.renderCardBacks(player.hand.length) + '</div>';
+      container.appendChild(slot);
+    }
+  },
+
+  getOpponentPositions: function() {
+    var n = this.playerCount - 1;
+    if (n === 2) return ['left', 'right'];
+    if (n === 3) return ['left', 'top', 'right'];
+    if (n === 4) return ['left', 'top-left', 'top-right', 'right'];
+    if (n === 5) return ['left', 'top-left', 'top', 'top-right', 'right'];
+    return ['left', 'top', 'right'];
+  },
+
+  renderCardBacks: function(count) {
+    var show = Math.min(count, 3);
+    var html = '';
+    for (var i = 0; i < show; i++) html += '<div class="card-back"></div>';
+    return html;
+  },
+
+  renderHand: function() {
+    var hand = document.getElementById('player-hand');
+    var player = this.players[this.myPlayerIndex];
+    hand.innerHTML = '';
+    var topCard = this.discardPile[this.discardPile.length - 1];
+    var isMyTurn = this.currentPlayerIndex === this.myPlayerIndex && !this.gameOver && !this.pendingColorPick && !this.animating;
+    var self = this;
+
+    player.hand.forEach(function(card, idx) {
+      var el = self.createCardElement(card);
+      var canPlay = isMyTurn && card.canPlayOn(topCard, self.currentColor);
+      if (canPlay) el.classList.add('playable');
+      if (isMyTurn && canPlay) {
+        el.addEventListener('click', function() { self.playCard(idx); });
+      }
+      hand.appendChild(el);
+    });
+
+    document.getElementById('player-card-count').textContent = player.hand.length;
+  },
+
+  createCardElement: function(card) {
+    var el = document.createElement('div');
+    var colorClass = card.isWild ? 'wild' : card.color;
+    el.className = 'game-card ' + colorClass;
+    el.dataset.cardId = card.id;
+    var display = card.displayValue;
+    var isIcon = card.isSpecial || card.isWild;
+    el.innerHTML =
+      '<div class="card-corner"><div class="card-corner-num"><span class="' + (isIcon ? 'card-icon-small' : '') + '">' + display + '</span></div></div>' +
+      '<div class="card-center"><span class="' + (isIcon ? 'card-icon' : '') + '">' + display + '</span></div>' +
+      '<div class="card-corner-bottom"><div class="card-corner-num"><span class="' + (isIcon ? 'card-icon-small' : '') + '">' + display + '</span></div></div>';
+    return el;
+  },
+
+  renderDiscard: function() {
+    var pile = document.getElementById('discard-pile');
+    pile.querySelectorAll('.game-card').forEach(function(el) { el.remove(); });
+    var topCard = this.discardPile[this.discardPile.length - 1];
+    if (topCard) {
+      var el = this.createCardElement(topCard);
+      el.style.cursor = 'default';
+      el.style.position = 'absolute';
+      el.style.top = '0';
+      el.style.left = '0';
+      el.style.transform = 'rotate(' + ((Math.random() - 0.5) * 10) + 'deg)';
+      pile.appendChild(el);
+    }
+  },
+
+  renderTurnBanner: function() {
+    var banner = document.getElementById('turn-banner');
+    var text = document.getElementById('turn-text');
+    var dot = document.getElementById('turn-dot');
+    var current = this.players[this.currentPlayerIndex];
+    var isMe = this.currentPlayerIndex === this.myPlayerIndex;
+
+    if (this.gameOver) {
+      text.textContent = 'Game Over';
+      banner.className = '';
+      banner.id = 'turn-banner';
+      return;
+    }
+
+    if (isMe) {
+      text.textContent = "YOUR TURN";
+      banner.className = 'your-turn';
+      banner.id = 'turn-banner';
+    } else {
+      text.textContent = current.name + "'s turn";
+      banner.className = '';
+      banner.id = 'turn-banner';
+    }
+    dot.style.background = current.avatarColor;
+    dot.style.borderColor = current.avatarColor;
+  },
+
+  renderTurnOrder: function() {
+    var container = document.getElementById('turn-order');
+    container.innerHTML = '';
+    var order = this.getTurnOrder();
+    var self = this;
+    order.forEach(function(idx, i) {
+      var p = self.players[idx];
+      var isCurrent = idx === self.currentPlayerIndex;
+      var item = document.createElement('div');
+      item.className = 'turn-order-item' + (isCurrent ? ' current' : '');
+      var arrow = self.direction === 1 ? '▼' : '▲';
+      if (i === order.length - 1) arrow = '';
+      item.innerHTML =
+        '<div class="to-avatar" style="background:' + p.avatarColor + '">' + p.avatar + '</div>' +
+        '<span>' + p.name + '</span>' +
+        '<span class="to-arrow">' + arrow + '</span>';
+      container.appendChild(item);
+    });
+  },
+
+  getTurnOrder: function() {
+    var order = [];
+    var idx = this.currentPlayerIndex;
+    for (var i = 0; i < this.playerCount; i++) {
+      order.push(idx);
+      idx = (idx + this.direction + this.playerCount) % this.playerCount;
+    }
+    return order;
+  },
+
+  renderDirection: function() {
+    var ring = document.getElementById('direction-ring');
+    var label = document.getElementById('direction-label');
+    var cw = this.direction === 1;
+    ring.innerHTML =
+      '<div class="dir-arrow cw-top">' + (cw ? '←' : '→') + '</div>' +
+      '<div class="dir-arrow cw-right">' + (cw ? '↑' : '↓') + '</div>' +
+      '<div class="dir-arrow cw-bottom">' + (cw ? '→' : '←') + '</div>' +
+      '<div class="dir-arrow cw-left">' + (cw ? '↓' : '↑') + '</div>';
+    label.textContent = cw ? '↻ Clockwise' : '↺ Counter-clockwise';
+  },
+
+  updateColorIndicator: function() {
+    var indicator = document.getElementById('current-color-indicator');
+    var dot = document.getElementById('current-color-dot');
+    var label = document.getElementById('current-color-label');
+    var colors = { red: '#E53935', yellow: '#FDD835', green: '#43A047', blue: '#1E88E5' };
+    if (this.currentColor && colors[this.currentColor]) {
+      dot.style.background = colors[this.currentColor];
+      label.textContent = this.currentColor;
+      indicator.classList.add('show');
+      document.getElementById('discard-color-ring').style.borderColor = colors[this.currentColor];
+    }
+  },
+
+  updateCardCounts: function() {
+    var self = this;
+    this.players.forEach(function(p, i) {
+      if (i === self.myPlayerIndex) {
+        document.getElementById('player-card-count').textContent = p.hand.length;
+      } else {
+        var el = document.getElementById('count-' + i);
+        if (el) el.textContent = p.hand.length;
+        var cards = document.getElementById('cards-' + i);
+        if (cards) cards.innerHTML = self.renderCardBacks(p.hand.length);
+      }
+    });
+  },
+
+  updateDrawPile: function() {
+    var container = document.getElementById('draw-pile-container');
+    var isMyTurn = this.currentPlayerIndex === this.myPlayerIndex && !this.gameOver && !this.pendingColorPick;
+    if (isMyTurn && !this.animating) {
+      container.classList.remove('disabled');
+    } else {
+      container.classList.add('disabled');
+    }
+  },
+
+  updatePassBtn: function() {
+    var btn = document.getElementById('pass-btn');
+    if (this.drewThisTurn && this.currentPlayerIndex === this.myPlayerIndex && !this.gameOver) {
+      btn.style.display = 'block';
+    } else {
+      btn.style.display = 'none';
+    }
+  },
+
+  highlightCurrentPlayer: function() {
+    document.querySelectorAll('.player-slot').forEach(function(el) { el.classList.remove('active-turn'); });
+    var slot = document.getElementById('player-slot-' + this.currentPlayerIndex);
+    if (slot) slot.classList.add('active-turn');
+
+    var playerAvatar = document.getElementById('player-avatar');
+    var handArea = document.getElementById('player-hand-area');
+    var isMe = this.currentPlayerIndex === this.myPlayerIndex;
+
+    if (isMe) {
+      playerAvatar.style.borderColor = '#FFD54F';
+      playerAvatar.style.boxShadow = '0 0 20px rgba(255,213,79,0.7)';
+      playerAvatar.style.animation = 'avatar-glow 1.5s ease-in-out infinite';
+      handArea.classList.add('my-turn');
+    } else {
+      playerAvatar.style.borderColor = 'rgba(255,255,255,0.2)';
+      playerAvatar.style.boxShadow = 'none';
+      playerAvatar.style.animation = 'none';
+      handArea.classList.remove('my-turn');
+    }
+  },
+
+  // ===== GAME LOGIC =====
+  drawFromDeck: function() {
+    if (this.deck.length === 0) {
+      var top = this.discardPile.pop();
+      var self = this;
+      this.deck = shuffle(this.discardPile.map(function(c) { return new Card(c.isWild ? 'wild' : c.color, c.value); }));
+      this.discardPile = [top];
+    }
+    return this.deck.pop();
+  },
+
+  playCard: function(cardIndex) {
+    if (this.animating || this.gameOver || this.currentPlayerIndex !== this.myPlayerIndex) return;
+    var player = this.players[this.myPlayerIndex];
+    var card = player.hand[cardIndex];
+    var topCard = this.discardPile[this.discardPile.length - 1];
+    if (!card.canPlayOn(topCard, this.currentColor)) return;
+
+    this.animating = true;
+    this.drewThisTurn = false;
+    player.hand.splice(cardIndex, 1);
+
+    // Crazy 8 call check
+    if (player.hand.length === 1) {
+      this.calledCrazy8 = false;
+      document.getElementById('crazy8-call-btn').style.display = 'block';
+      var self = this;
+      setTimeout(function() {
+        if (!self.calledCrazy8 && player.hand.length === 1) {
+          self.showToast(player.name + ' forgot CRAZY 8! +2 cards');
+          player.hand.push(self.drawFromDeck());
+          player.hand.push(self.drawFromDeck());
+          self.renderHand();
+          self.updateCardCounts();
+        }
+        document.getElementById('crazy8-call-btn').style.display = 'none';
+      }, 3000);
+    }
+
+    this.executePlay(card, this.myPlayerIndex);
+  },
+
+  callCrazy8: function() {
+    this.calledCrazy8 = true;
+    document.getElementById('crazy8-call-btn').style.display = 'none';
+    this.showToast(this.players[this.myPlayerIndex].name + ': CRAZY 8!');
+  },
+
+  executePlay: function(card, playerIndex) {
+    this.discardPile.push(card);
+    this.currentColor = card.isWild ? null : card.color;
+
+    this.renderDiscard();
+    this.renderHand();
+    this.updateCardCounts();
+
+    if (this.players[playerIndex].hand.length === 0) {
+      var self = this;
+      setTimeout(function() { self.endGame(playerIndex); }, 600);
+      return;
+    }
+
+    if (card.isWild) {
+      if (playerIndex === this.myPlayerIndex) {
+        this.pendingColorPick = true;
+        this.pendingCard = card;
+        document.getElementById('color-picker-overlay').classList.add('show');
+        this.animating = false;
+        return;
+      } else {
+        var color = this.botPickColor(playerIndex);
+        this.currentColor = color;
+        this.updateColorIndicator();
+        if (card.value === 'wild4') this.mustDraw = 4;
+        this.showToast(this.players[playerIndex].name + ' chose ' + color.toUpperCase());
+      }
+    }
+
+    if (card.value === 'reverse') {
+      this.direction *= -1;
+      this.renderDirection();
+      if (this.playerCount === 2) this.skipNext = true;
+      this.showToast('Reversed!');
+    }
+    if (card.value === 'skip') {
+      this.skipNext = true;
+      this.showToast('Skip!');
+    }
+    if (card.value === 'draw2') {
+      this.mustDraw = 2;
+    }
+
+    this.updateColorIndicator();
+    this.nextTurn();
+  },
+
+  pickColor: function(color) {
+    if (!this.pendingColorPick) return;
+    this.pendingColorPick = false;
+    document.getElementById('color-picker-overlay').classList.remove('show');
+    this.currentColor = color;
+    this.updateColorIndicator();
+    if (this.pendingCard && this.pendingCard.value === 'wild4') this.mustDraw = 4;
+    this.showToast('You chose ' + color.toUpperCase());
+    this.nextTurn();
+  },
+
+  drawCard: function() {
+    if (this.animating || this.gameOver || this.currentPlayerIndex !== this.myPlayerIndex || this.pendingColorPick) return;
+    if (this.drewThisTurn) return; // Can only draw once per turn
+
+    var player = this.players[this.myPlayerIndex];
+    var card = this.drawFromDeck();
+    player.hand.push(card);
+    this.drewThisTurn = true;
+
+    this.showToast('Drew a card');
+    this.renderHand();
+    this.updateCardCounts();
+    this.updatePassBtn();
+    this.updateDrawPile();
+
+    // Check if drawn card can be played
+    var topCard = this.discardPile[this.discardPile.length - 1];
+    if (!card.canPlayOn(topCard, this.currentColor)) {
+      // Auto pass after a moment
+      var self = this;
+      setTimeout(function() { self.passTurn(); }, 1200);
+    }
+    // If it can be played, player chooses to play or pass via pass button
+  },
+
+  passTurn: function() {
+    if (this.currentPlayerIndex !== this.myPlayerIndex || this.gameOver) return;
+    this.drewThisTurn = false;
+    this.nextTurn();
+  },
+
+  nextTurn: function() {
+    this.animating = false;
+    var next = this.getNextPlayer(this.currentPlayerIndex);
+
+    if (this.skipNext) {
+      this.skipNext = false;
+      var skipped = this.players[next];
+      this.showToast(skipped.name + ' was skipped!');
+      next = this.getNextPlayer(next);
+    }
+
+    if (this.mustDraw > 0) {
+      var target = next;
+      var player = this.players[target];
+      for (var i = 0; i < this.mustDraw; i++) {
+        player.hand.push(this.drawFromDeck());
+      }
+      this.showToast(player.name + ' draws ' + this.mustDraw + ' cards!');
+      this.updateCardCounts();
+      if (target === this.myPlayerIndex) this.renderHand();
+      this.mustDraw = 0;
+      next = this.getNextPlayer(target);
+    }
+
+    this.currentPlayerIndex = next;
+    this.drewThisTurn = false;
+    this.actionTimestamp = Date.now();
+    this.highlightCurrentPlayer();
+    this.renderTurnBanner();
+    this.renderTurnOrder();
+    this.updateDrawPile();
+    this.updatePassBtn();
+
+    if (this.mode === 'online') {
+      this.saveToFirebase();
+    }
+
+    if (next === this.myPlayerIndex) {
+      this.renderHand();
+    } else if (this.mode === 'ai') {
+      var self = this;
+      setTimeout(function() { self.botTurn(); }, 800 + Math.random() * 800);
+    }
+  },
+
+  getNextPlayer: function(from) {
+    return (from + this.direction + this.playerCount) % this.playerCount;
+  },
+
+  // ===== BOT AI =====
+  botTurn: function() {
+    if (this.gameOver || this.currentPlayerIndex === this.myPlayerIndex) return;
+
+    var player = this.players[this.currentPlayerIndex];
+    var topCard = this.discardPile[this.discardPile.length - 1];
+    var playable = [];
+    player.hand.forEach(function(card, idx) {
+      if (card.canPlayOn(topCard, game.currentColor)) playable.push({ card: card, idx: idx });
+    });
+
+    if (playable.length > 0) {
+      playable.sort(function(a, b) {
+        if (a.card.isWild !== b.card.isWild) return a.card.isWild ? 1 : -1;
+        if (a.card.isSpecial !== b.card.isSpecial) return a.card.isSpecial ? -1 : 1;
+        return (parseInt(b.card.value) || 0) - (parseInt(a.card.value) || 0);
+      });
+
+      var chosen = playable[0];
+      player.hand.splice(chosen.idx, 1);
+
+      if (Math.random() < 0.2) this.botChat(this.currentPlayerIndex);
+
+      if (player.hand.length === 1) {
+        var self = this;
+        if (Math.random() > 0.15) {
+          setTimeout(function() { self.showToast(player.name + ': CRAZY 8!'); }, 300);
+        } else {
+          setTimeout(function() {
+            self.showToast(player.name + ' forgot CRAZY 8! +2 cards');
+            player.hand.push(self.drawFromDeck());
+            player.hand.push(self.drawFromDeck());
+            self.updateCardCounts();
+          }, 1500);
+        }
+      }
+
+      this.executePlay(chosen.card, this.currentPlayerIndex);
+    } else {
+      var drawn = this.drawFromDeck();
+      player.hand.push(drawn);
+      this.updateCardCounts();
+      this.showToast(player.name + ' drew a card');
+
+      if (drawn.canPlayOn(topCard, this.currentColor)) {
+        var self = this;
+        var ci = this.currentPlayerIndex;
+        setTimeout(function() {
+          player.hand.splice(player.hand.indexOf(drawn), 1);
+          self.executePlay(drawn, ci);
+        }, 600);
+      } else {
+        this.nextTurn();
+      }
+    }
+  },
+
+  botPickColor: function(playerIndex) {
+    var player = this.players[playerIndex];
+    var counts = { red: 0, yellow: 0, green: 0, blue: 0 };
+    player.hand.forEach(function(c) { if (counts[c.color] !== undefined) counts[c.color]++; });
+    var best = 'red', max = 0;
+    for (var c in counts) { if (counts[c] > max) { max = counts[c]; best = c; } }
+    return best;
+  },
+
+  botChat: function(playerIndex) {
+    var player = this.players[playerIndex];
+    var slot = document.getElementById('player-slot-' + playerIndex);
+    if (!slot) return;
+    var existing = slot.querySelector('.chat-bubble');
+    if (existing) existing.remove();
+
+    var phrase = BOT_PHRASES[Math.floor(Math.random() * BOT_PHRASES.length)];
+    var others = this.players.filter(function(_, i) { return i !== playerIndex; });
+    var target = others[Math.floor(Math.random() * others.length)];
+    phrase = phrase.replace('{name}', target.name);
+
+    var bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.textContent = phrase;
+    slot.appendChild(bubble);
+    setTimeout(function() { bubble.remove(); }, 2500);
+  },
+
+  // ===== GAME END =====
+  endGame: function(winnerIndex) {
+    this.gameOver = true;
+    var winner = this.players[winnerIndex];
+    document.getElementById('winner-name').textContent = winner.avatar + ' ' + winner.name + ' wins!';
+
+    var scoreboard = document.getElementById('scoreboard');
+    scoreboard.innerHTML = '';
+    var scores = this.players.map(function(p) {
+      return { name: p.name, avatar: p.avatar, points: p.hand.reduce(function(s, c) { return s + c.points; }, 0), isWinner: p === winner };
+    }).sort(function(a, b) { return a.points - b.points; });
+
+    scores.forEach(function(s) {
+      var row = document.createElement('div');
+      row.className = 'score-row' + (s.isWinner ? ' winner' : '');
+      row.innerHTML = '<span>' + s.avatar + ' ' + s.name + '</span><span>' + s.points + ' pts</span>';
+      scoreboard.appendChild(row);
+    });
+
+    this.renderTurnBanner();
+    document.getElementById('game-over-overlay').classList.add('show');
+
+    if (this.mode === 'online') {
+      this.saveToFirebase();
+    }
+  },
+
+  restart: function() {
+    document.getElementById('game-over-overlay').classList.remove('show');
+    if (this.mode === 'ai') {
+      this.initAI(this.playerCount);
+    } else {
+      leaveGame();
+    }
+  },
+
+  // ===== FIREBASE ONLINE =====
+  buildFirebaseState: function() {
+    return {
+      type: 'crazy8',
+      board: '_',
+      turn: String(this.currentPlayerIndex + 1),
+      status: this.gameOver ? 'finished' : 'playing',
+      playerCount: this.playerCount,
+      players: this.players.map(function(p) {
+        return {
+          name: p.name,
+          hand: p.hand.map(function(c) { return c.toJSON(); }),
+          isHuman: p.isHuman,
+          avatar: p.avatar,
+          avatarColor: p.avatarColor,
+        };
+      }),
+      deck: this.deck.map(function(c) { return c.toJSON(); }),
+      discardPile: this.discardPile.map(function(c) { return c.toJSON(); }),
+      currentPlayerIndex: this.currentPlayerIndex,
+      currentColor: this.currentColor,
+      direction: this.direction,
+      mustDraw: this.mustDraw,
+      skipNext: this.skipNext,
+      gameOver: this.gameOver,
+      actionTimestamp: this.actionTimestamp,
+      createdAt: this.createdAt || Date.now(),
+    };
+  },
+
+  loadStateFromFirebase: function(data) {
+    normalizePlayers(data);
+    this.playerCount = data.playerCount;
+    this.currentPlayerIndex = data.currentPlayerIndex || 0;
+    this.currentColor = data.currentColor;
+    this.direction = data.direction || 1;
+    this.mustDraw = data.mustDraw || 0;
+    this.skipNext = data.skipNext || false;
+    this.gameOver = data.gameOver || false;
+    this.actionTimestamp = data.actionTimestamp || 0;
+    this.createdAt = data.createdAt;
+    this.drewThisTurn = false;
+    this.animating = false;
+    this.pendingColorPick = false;
+
+    var self = this;
+    this.players = (data.players || []).map(function(p) {
+      return {
+        name: p.name,
+        hand: (p.hand || []).map(cardFromJSON),
+        isHuman: p.isHuman,
+        avatar: p.avatar,
+        avatarColor: p.avatarColor,
+      };
+    });
+    this.deck = (data.deck || []).map(cardFromJSON);
+    this.discardPile = (data.discardPile || []).map(cardFromJSON);
+  },
+
+  saveToFirebase: function() {
+    if (!this.gameCode) return;
+    var data = this.buildFirebaseState();
+    this.lastSyncTimestamp = data.actionTimestamp;
+    firebaseSave(this.gameCode, data);
+  },
+
+  startPolling: function() {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    var self = this;
+    this.pollTimer = setInterval(function() {
+      if (self.gameOver) return;
+      // Only poll when it's NOT our turn
+      if (self.currentPlayerIndex === self.myPlayerIndex) return;
+
+      firebaseLoad(self.gameCode).then(function(data) {
+        if (!data || !data.actionTimestamp) return;
+        if (data.actionTimestamp <= self.lastSyncTimestamp) return;
+
+        self.lastSyncTimestamp = data.actionTimestamp;
+        self.loadStateFromFirebase(data);
+        self.renderAll();
+
+        if (data.gameOver) {
+          var winnerIdx = -1;
+          data.players.forEach(function(p, i) { if (p.hand.length === 0) winnerIdx = i; });
+          if (winnerIdx >= 0) self.endGame(winnerIdx);
+        }
+      });
+    }, 1500);
+  },
+
+  stopPolling: function() {
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  },
+
+  // ===== UTILS =====
+  showToast: function(msg) {
+    var bar = document.getElementById('status-bar');
+    var toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    bar.innerHTML = '';
+    bar.appendChild(toast);
+    setTimeout(function() {
+      toast.classList.add('fade-out');
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 1800);
+  },
+};
+
+var game = new CrazyEightGame();
+
+// ===== START GAME FUNCTIONS =====
+function startAIGame() {
+  var count = getSelectedCount('ai-count-row');
+  game.playerName = getPlayerName();
+  game.initAI(count);
+}
+
+function createOnlineGame() {
+  var code = generateCode();
+  var count = getSelectedCount('online-count-row');
+  var name = getPlayerName();
+
+  game.playerName = name;
+  game.playerCount = count;
+  game.myPlayerIndex = 0;
+  game.gameCode = code;
+  game.createdAt = Date.now();
+
+  // Build initial state: just player 1 joined
+  var initialPlayers = [{ name: name, hand: [], isHuman: true, avatar: '😎', avatarColor: AVATAR_COLORS[0], joined: true }];
+  for (var i = 1; i < count; i++) {
+    initialPlayers.push({ name: '', hand: [], isHuman: true, avatar: AVATARS[i] || '🤖', avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length], joined: false });
+  }
+
+  var data = {
+    type: 'crazy8',
+    board: '_',
+    turn: '1',
+    status: 'waiting',
+    playerCount: count,
+    players: initialPlayers,
+    joinedCount: 1,
+    createdAt: Date.now(),
+  };
+
+  firebaseSave(code, data).then(function() {
+    showScreen('screen-lobby');
+    document.getElementById('lobby-code').textContent = code;
+    renderLobby(data);
+    startLobbyPolling(code, count);
+  });
+}
+
+function joinOnlineGame() {
+  var code = document.getElementById('input-code').value.trim().toUpperCase();
+  if (code.length < 5) { alert('Please enter a valid 5-letter code'); return; }
+  var name = getPlayerName();
+
+  firebaseLoad(code).then(function(data) {
+    if (!data || data.type !== 'crazy8') { alert('Game not found!'); return; }
+    if (data.status === 'playing') { alert('Game already in progress!'); return; }
+    if (data.status === 'finished') { alert('Game already finished!'); return; }
+
+    // Firebase may convert arrays to objects — normalize
+    if (data.players && !Array.isArray(data.players)) {
+      var arr = [];
+      for (var k = 0; k < data.playerCount; k++) {
+        arr.push(data.players[k] || data.players[String(k)]);
+      }
+      data.players = arr;
+    }
+
+    // Find first empty slot
+    var slotIndex = -1;
+    for (var i = 0; i < data.players.length; i++) {
+      if (!data.players[i].joined) { slotIndex = i; break; }
+    }
+    if (slotIndex === -1) { alert('Game is full!'); return; }
+
+    data.players[slotIndex].name = name;
+    data.players[slotIndex].joined = true;
+    data.joinedCount = (data.joinedCount || 1) + 1;
+
+    // Check if all players joined
+    if (data.joinedCount >= data.playerCount) {
+      // Ensure all players have hand arrays (Firebase drops empty arrays)
+      for (var p = 0; p < data.playerCount; p++) {
+        if (!data.players[p].hand) data.players[p].hand = [];
+      }
+      // Deal cards and start
+      var deck = shuffle(buildDeck());
+      for (var i = 0; i < 7; i++) {
+        for (var p = 0; p < data.playerCount; p++) {
+          data.players[p].hand.push(deck.pop().toJSON());
+        }
+      }
+      // Find first non-wild non-special card
+      var firstCard;
+      for (var tries = 0; tries < 100; tries++) {
+        firstCard = deck.pop();
+        if (!firstCard.isWild && !firstCard.isSpecial) break;
+        deck.unshift(firstCard);
+        shuffle(deck);
+        firstCard = null;
+      }
+      if (!firstCard) firstCard = new Card('red', '0');
+
+      data.deck = deck.map(function(c) { return c.toJSON(); });
+      data.discardPile = [firstCard.toJSON()];
+      data.currentPlayerIndex = 0;
+      data.currentColor = firstCard.color;
+      data.direction = 1;
+      data.mustDraw = 0;
+      data.skipNext = false;
+      data.gameOver = false;
+      data.status = 'playing';
+      data.actionTimestamp = Date.now();
+    }
+
+    firebaseSave(code, data).then(function() {
+      game.gameCode = code;
+      game.myPlayerIndex = slotIndex;
+      game.playerName = name;
+
+      if (data.status === 'playing') {
+        game.initOnline(data, code, slotIndex);
+      } else {
+        showScreen('screen-lobby');
+        document.getElementById('lobby-code').textContent = code;
+        renderLobby(data);
+        startLobbyPolling(code, data.playerCount);
+      }
+    }).catch(function(e) { console.error('Join save error:', e); alert('Error joining game. Try again.'); });
+  }).catch(function(e) { console.error('Join load error:', e); alert('Error loading game. Try again.'); });
+}
+
+// Firebase converts arrays to objects with numeric keys — normalize them back
+function normalizeArray(obj) {
+  if (!obj || Array.isArray(obj)) return obj || [];
+  var arr = [];
+  var keys = Object.keys(obj).sort(function(a,b) { return Number(a) - Number(b); });
+  for (var i = 0; i < keys.length; i++) arr.push(obj[keys[i]]);
+  return arr;
+}
+
+function normalizePlayers(data) {
+  if (data.players && !Array.isArray(data.players)) {
+    data.players = normalizeArray(data.players);
+  }
+  // Also normalize hands inside each player
+  if (data.players) {
+    for (var i = 0; i < data.players.length; i++) {
+      if (data.players[i] && data.players[i].hand && !Array.isArray(data.players[i].hand)) {
+        data.players[i].hand = normalizeArray(data.players[i].hand);
+      }
+    }
+  }
+  if (data.deck && !Array.isArray(data.deck)) data.deck = normalizeArray(data.deck);
+  if (data.discardPile && !Array.isArray(data.discardPile)) data.discardPile = normalizeArray(data.discardPile);
+}
+
+// ===== LOBBY =====
+var lobbyPollTimer = null;
+
+function renderLobby(data) {
+  normalizePlayers(data);
+  var container = document.getElementById('lobby-players');
+  container.innerHTML = '';
+  data.players.forEach(function(p, i) {
+    var div = document.createElement('div');
+    div.className = 'lobby-player';
+    div.innerHTML =
+      '<div class="lp-avatar" style="background:' + (p.avatarColor || AVATAR_COLORS[i]) + '">' + (p.avatar || AVATARS[i]) + '</div>' +
+      '<div class="lp-name">' + (p.joined ? p.name : 'Waiting...') + '</div>' +
+      '<div class="lp-status">' + (p.joined ? '✓ Ready' : '⏳') + '</div>';
+    container.appendChild(div);
+  });
+  document.getElementById('lobby-waiting').style.display = (data.joinedCount || 1) < data.playerCount ? 'block' : 'none';
+}
+
+function startLobbyPolling(code, count) {
+  if (lobbyPollTimer) clearInterval(lobbyPollTimer);
+  lobbyPollTimer = setInterval(function() {
+    firebaseLoad(code).then(function(data) {
+      if (!data) return;
+      renderLobby(data);
+
+      if (data.status === 'playing') {
+        clearInterval(lobbyPollTimer);
+        lobbyPollTimer = null;
+        // Find my index
+        var myIndex = game.myPlayerIndex;
+        game.initOnline(data, code, myIndex);
+      }
+    });
+  }, 1500);
+}
+
+function leaveLobby() {
+  if (lobbyPollTimer) { clearInterval(lobbyPollTimer); lobbyPollTimer = null; }
+  // Optionally clean up Firebase
+  showScreen('screen-menu');
+}
+
+function leaveGame() {
+  game.stopPolling();
+  game.gameOver = true;
+  document.getElementById('game-over-overlay').classList.remove('show');
+  document.getElementById('table').style.display = 'none';
+  showScreen('screen-menu');
+}
+
+function showHelp() {
+  alert(
+    'CRAZY 8 RULES\n\n' +
+    '• Match the top card by COLOR or NUMBER\n' +
+    '• Wild cards (★) can be played anytime - pick a new color\n' +
+    '• Wild +4: next player draws 4 cards\n' +
+    '• Skip (⊘): next player loses their turn\n' +
+    '• Reverse (⟳): reverses play direction\n' +
+    '• Draw 2 (+2): next player draws 2 cards\n' +
+    '• If you can\'t play, draw a card\n' +
+    '• Call "CRAZY 8" when you have 1 card left!\n' +
+    '• First player to empty their hand wins!'
+  );
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8">
+<style>* { margin: 0; padding: 0; } body { background: #000; } canvas { display: none; }</style>
+</head>
+<body>
+<canvas id="c" width="400" height="600"></canvas>
+<script>
+// Recreate the original procedural course generator
+function golfGenerateCourse(seed) {
+  var s = (seed * 2654435761) >>> 0;
+  function rng() { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s >>> 16) / 32768; }
+  for (var w = 0; w < 5; w++) rng();
+  var waypoints = [];
+  var style = Math.floor(rng() * 6);
+  var numPts = 18 + Math.floor(rng() * 5);
+  var yStep = 540 / (numPts - 1);
+  if (style <= 1) {
+    var cx = 120 + rng() * 160;
+    for (var i = 0; i < numPts; i++) {
+      cx += (rng() - 0.5) * 45;
+      cx = Math.max(70, Math.min(330, cx));
+      var w2 = 60 + (rng() - 0.5) * 30;
+      waypoints.push({ x: cx, y: 575 - i * yStep, w: w2 });
+    }
+  } else if (style === 2) {
+    var baseX = 200;
+    for (var i = 0; i < numPts; i++) {
+      var t = i / (numPts - 1);
+      var swing = Math.sin(t * Math.PI * 2) * 100;
+      var cx = baseX + swing + (rng() - 0.5) * 20;
+      cx = Math.max(70, Math.min(330, cx));
+      var w2 = 55 + rng() * 25;
+      if (t > 0.35 && t < 0.65) w2 = 40 + rng() * 15;
+      waypoints.push({ x: cx, y: 575 - i * yStep, w: w2 });
+    }
+  } else if (style === 3) {
+    var startX = rng() > 0.5 ? 110 : 290;
+    var endX = startX < 200 ? 290 : 110;
+    var turnPt = Math.floor(numPts * (0.35 + rng() * 0.3));
+    for (var i = 0; i < numPts; i++) {
+      var cx;
+      if (i < turnPt - 2) cx = startX + (rng() - 0.5) * 20;
+      else if (i > turnPt + 2) cx = endX + (rng() - 0.5) * 20;
+      else { var blend = (i - (turnPt - 2)) / 4; cx = startX + (endX - startX) * blend; }
+      cx = Math.max(70, Math.min(330, cx));
+      var w2 = 58 + rng() * 22;
+      waypoints.push({ x: cx, y: 575 - i * yStep, w: w2 });
+    }
+  } else if (style === 4) {
+    var cx = 150 + rng() * 100;
+    for (var i = 0; i < numPts; i++) {
+      cx += (rng() - 0.5) * 30;
+      cx = Math.max(80, Math.min(320, cx));
+      var t = i / (numPts - 1);
+      var roomFactor = Math.sin(t * Math.PI);
+      var w2 = 45 + roomFactor * 70 + rng() * 15;
+      waypoints.push({ x: cx, y: 575 - i * yStep, w: w2 });
+    }
+  } else {
+    var cx = 150; var dir = 1;
+    for (var i = 0; i < numPts; i++) {
+      cx += dir * (8 + rng() * 18);
+      if (cx > 310) { dir = -1; cx = 310; }
+      if (cx < 90) { dir = 1; cx = 90; }
+      if (i % (4 + Math.floor(rng() * 3)) === 0) dir *= -1;
+      var w2 = 50 + rng() * 30;
+      waypoints.push({ x: cx, y: 575 - i * yStep, w: w2 });
+    }
+  }
+  for (var pass = 0; pass < 3; pass++) {
+    for (var i = 1; i < waypoints.length - 1; i++) {
+      waypoints[i].x = waypoints[i].x * 0.5 + (waypoints[i-1].x + waypoints[i+1].x) * 0.25;
+      waypoints[i].w = waypoints[i].w * 0.5 + (waypoints[i-1].w + waypoints[i+1].w) * 0.25;
+    }
+  }
+  var leftEdge = [], rightEdge = [];
+  for (var i = 0; i < waypoints.length; i++) {
+    var wp = waypoints[i];
+    var halfW = wp.w / 2;
+    leftEdge.push({ x: Math.max(8, wp.x - halfW), y: wp.y });
+    rightEdge.push({ x: Math.min(392, wp.x + halfW), y: wp.y });
+  }
+  var polygon = [];
+  for (var i = 0; i < leftEdge.length; i++) polygon.push(leftEdge[i]);
+  for (var i = rightEdge.length - 1; i >= 0; i--) polygon.push(rightEdge[i]);
+  var walls = [];
+  for (var i = 0; i < polygon.length; i++) {
+    var next = (i + 1) % polygon.length;
+    walls.push([polygon[i].x, polygon[i].y, polygon[next].x, polygon[next].y]);
+  }
+  var startPt = waypoints[0];
+  var holePt = waypoints[waypoints.length - 1];
+  var slopes = [];
+  var dirs = ['N','S','E','W'];
+  var numSlopes = 2 + Math.floor(rng() * 3);
+  for (var i = 0; i < numSlopes; i++) {
+    var si = 3 + Math.floor(rng() * (waypoints.length - 6));
+    var wp = waypoints[si];
+    slopes.push({
+      x: wp.x + (rng() - 0.5) * (wp.w * 0.4),
+      y: wp.y + (rng() - 0.5) * 15,
+      radius: 18 + rng() * 18,
+      dir: dirs[Math.floor(rng() * 4)]
+    });
+  }
+  return {
+    par: 3 + Math.floor(rng() * 2),
+    polygon: polygon,
+    start: { x: startPt.x, y: startPt.y },
+    hole: { x: holePt.x, y: holePt.y },
+    slopes: slopes,
+    _walls: walls
+  };
+}
+
+function drawCoursePath(ctx, poly) {
+  ctx.beginPath();
+  ctx.moveTo(poly[0].x, poly[0].y);
+  for (var i = 1; i < poly.length; i++) {
+    var prev = poly[i - 1];
+    var curr = poly[i];
+    var mx = (prev.x + curr.x) / 2;
+    var my = (prev.y + curr.y) / 2;
+    ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
+  }
+  var last = poly[poly.length - 1];
+  var first = poly[0];
+  var mx2 = (last.x + first.x) / 2;
+  var my2 = (last.y + first.y) / 2;
+  ctx.quadraticCurveTo(last.x, last.y, mx2, my2);
+  ctx.closePath();
+}
+
+function renderCourse(course) {
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var W = 400, H = 600;
+  ctx.fillStyle = '#c1b8af';
+  ctx.fillRect(0, 0, W, H);
+  drawCoursePath(ctx, course.polygon);
+  ctx.fillStyle = '#029e33';
+  ctx.fill();
+  ctx.save();
+  drawCoursePath(ctx, course.polygon);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(60,130,50,0.15)';
+  ctx.lineWidth = 1;
+  for (var y = 0; y < H; y += 12) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  if (course.slopes) {
+    for (var i = 0; i < course.slopes.length; i++) {
+      var sl = course.slopes[i];
+      var grad = ctx.createRadialGradient(sl.x, sl.y, 0, sl.x, sl.y, sl.radius);
+      grad.addColorStop(0, 'rgba(55,110,45,0.4)');
+      grad.addColorStop(1, 'rgba(55,110,45,0)');
+      ctx.beginPath(); ctx.arc(sl.x, sl.y, sl.radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.beginPath();
+      var ax = sl.x, ay = sl.y;
+      if (sl.dir === 'N') { ctx.moveTo(ax, ay-7); ctx.lineTo(ax-5, ay+3); ctx.lineTo(ax+5, ay+3); }
+      else if (sl.dir === 'S') { ctx.moveTo(ax, ay+7); ctx.lineTo(ax-5, ay-3); ctx.lineTo(ax+5, ay-3); }
+      else if (sl.dir === 'E') { ctx.moveTo(ax+7, ay); ctx.lineTo(ax-3, ay-5); ctx.lineTo(ax-3, ay+5); }
+      else { ctx.moveTo(ax-7, ay); ctx.lineTo(ax+3, ay-5); ctx.lineTo(ax+3, ay+5); }
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+  drawCoursePath(ctx, course.polygon);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  var hx = course.hole.x, hy = course.hole.y;
+  ctx.beginPath(); ctx.arc(hx, hy, 15, 0, Math.PI*2); ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(hx, hy, 12, 0, Math.PI*2); ctx.fillStyle = '#1a1a1a'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, hy-30); ctx.strokeStyle = '#ddd'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(hx, hy-30); ctx.lineTo(hx+14, hy-24); ctx.lineTo(hx, hy-18);
+  ctx.closePath(); ctx.fillStyle = '#ea4335'; ctx.fill();
+}
+
+// Generate all 100 courses and expose their data URLs
+var results = [];
+for (var seed = 1; seed <= 100; seed++) {
+  var course = golfGenerateCourse(seed);
+  renderCourse(course);
+  var dataUrl = document.getElementById('c').toDataURL('image/png');
+  results.push({ seed: seed, dataUrl: dataUrl });
+}
+
+// Store results on window for extraction
+window._seedResults = results;
+document.title = 'DONE';
+</script>
+</body>
+</html>
