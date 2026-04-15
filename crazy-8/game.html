@@ -220,7 +220,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 @keyframes pulse-btn{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 
 /* ===== PASS BTN ===== */
-#pass-btn{position:absolute;bottom:190px;left:30px;padding:10px 20px;background:rgba(255,255,255,0.15);color:white;border:2px solid rgba(255,255,255,0.3);border-radius:14px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;z-index:25;display:none;transition:all .2s}
+#pass-btn{position:absolute;bottom:190px;right:30px;padding:10px 20px;background:rgba(255,255,255,0.15);color:white;border:2px solid rgba(255,255,255,0.3);border-radius:14px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;z-index:25;display:none;transition:all .2s}
 #pass-btn:hover{background:rgba(255,255,255,0.25)}
 
 #help-btn{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);color:white;font-size:20px;font-weight:900;cursor:pointer;z-index:50;display:flex;align-items:center;justify-content:center;transition:background .2s}
@@ -236,6 +236,23 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 .turn-order-item.current .to-avatar{box-shadow:0 0 8px rgba(255,213,79,0.4)}
 .turn-order-item .to-arrow{margin-left:auto;font-size:10px;opacity:0.3}
 .turn-order-item.current .to-arrow{opacity:1;color:#FFD54F}
+
+/* ===== AVATAR PICKER ===== */
+.avatar-picker{display:flex;align-items:center;gap:14px}
+.avatar-preview{width:64px;height:64px;border-radius:50%;border:3px solid rgba(255,213,79,0.4);display:flex;align-items:center;justify-content:center;font-size:34px;background:rgba(0,0,0,0.3);cursor:pointer;transition:border-color .2s;overflow:hidden;flex-shrink:0;position:relative}
+.avatar-preview:hover{border-color:#FFD54F}
+.avatar-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.avatar-picker-btns{display:flex;flex-direction:column;gap:6px}
+.avatar-pick-btn{padding:6px 14px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:rgba(0,0,0,0.25);color:rgba(255,255,255,0.7);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;text-align:left}
+.avatar-pick-btn:hover{background:rgba(255,213,79,0.15);border-color:rgba(255,213,79,0.4);color:white}
+#emoji-grid-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+#emoji-grid-overlay.show{display:flex}
+#emoji-grid{background:rgba(30,30,30,0.95);border-radius:20px;padding:24px;border:2px solid rgba(255,255,255,0.1);max-width:360px}
+#emoji-grid h3{color:white;font-family:'Fredoka One',cursive;font-size:18px;margin-bottom:14px;text-align:center}
+.emoji-options{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.emoji-opt{width:48px;height:48px;border-radius:12px;border:2px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:transform .15s,border-color .15s}
+.emoji-opt:hover{transform:scale(1.15);border-color:#FFD54F}
+#photo-input{display:none}
 
 @media(max-width:768px){
   #player-hand .game-card{width:65px;height:95px;margin-left:-15px}
@@ -255,8 +272,18 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
     <h1>CRAZY 8</h1>
     <p class="subtitle">The classic card game</p>
     <div class="panel">
-      <label>Your Name</label>
-      <input type="text" id="input-name" placeholder="Enter your name..." maxlength="15" value="">
+      <label>Your Avatar & Name</label>
+      <div class="avatar-picker">
+        <div class="avatar-preview" id="avatar-preview" onclick="openEmojiPicker()">😎</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <input type="text" id="input-name" placeholder="Enter your name..." maxlength="15" value="">
+          <div class="avatar-picker-btns">
+            <button class="avatar-pick-btn" onclick="openEmojiPicker()">Choose Emoji</button>
+            <button class="avatar-pick-btn" onclick="document.getElementById('photo-input').click()">Take / Upload Photo</button>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="photo-input" accept="image/*" capture="user" onchange="handlePhotoUpload(event)">
     </div>
     <div class="panel">
       <label>Game Mode</label>
@@ -429,6 +456,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
       <div id="scoreboard"></div>
       <button class="btn-primary" id="btn-play-again" onclick="game.restart()">Play Again</button>
       <div class="back-link" style="margin-top:16px" onclick="leaveGame()">← Main Menu</div>
+    </div>
+  </div>
+
+  <!-- Emoji picker -->
+  <div id="emoji-grid-overlay" onclick="if(event.target===this)closeEmojiPicker()">
+    <div id="emoji-grid">
+      <h3>Pick Your Avatar</h3>
+      <div class="emoji-options" id="emoji-options"></div>
     </div>
   </div>
 </div>
@@ -644,8 +679,9 @@ CrazyEightGame.prototype = {
       name: this.playerName || getPlayerName(),
       hand: [],
       isHuman: true,
-      avatar: '😎',
+      avatar: getChosenAvatar(),
       avatarColor: AVATAR_COLORS[0],
+      photo: getChosenAvatarPhoto(),
     });
   },
 
@@ -689,7 +725,12 @@ CrazyEightGame.prototype = {
 
     var self = this;
     var me = this.players[this.myPlayerIndex];
-    document.getElementById('player-avatar-face').textContent = me.avatar;
+    var avatarFace = document.getElementById('player-avatar-face');
+    if (me.photo) {
+      avatarFace.innerHTML = '<img src="' + me.photo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+    } else {
+      avatarFace.textContent = me.avatar;
+    }
     document.getElementById('player-avatar').style.background = me.avatarColor;
     document.getElementById('player-name-display').textContent = me.name;
   },
@@ -698,9 +739,16 @@ CrazyEightGame.prototype = {
     var container = document.getElementById('opponents-container');
     container.innerHTML = '';
     var positions = this.getOpponentPositions();
+    // Order opponents clockwise from player's left: start at myIndex-1, go backwards
+    var ordered = [];
+    var idx = (this.myPlayerIndex - 1 + this.playerCount) % this.playerCount;
+    while (ordered.length < this.playerCount - 1) {
+      if (idx !== this.myPlayerIndex) ordered.push(idx);
+      idx = (idx - 1 + this.playerCount) % this.playerCount;
+    }
     var opIdx = 0;
-    for (var i = 0; i < this.players.length; i++) {
-      if (i === this.myPlayerIndex) continue;
+    for (var o = 0; o < ordered.length; o++) {
+      var i = ordered[o];
       var player = this.players[i];
       var pos = positions[opIdx++];
       var slot = document.createElement('div');
@@ -709,10 +757,13 @@ CrazyEightGame.prototype = {
       if (player.left) slot.classList.add('player-left');
       var active = i === this.currentPlayerIndex && !player.left ? ' active-turn' : '';
       if (active) slot.classList.add('active-turn');
+      var faceHtml = player.photo
+        ? '<img src="' + player.photo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+        : player.avatar;
       slot.innerHTML =
         '<div class="player-info">' +
           '<div class="avatar" style="background:' + player.avatarColor + '">' +
-            '<div class="avatar-face">' + player.avatar + '</div>' +
+            '<div class="avatar-face">' + faceHtml + '</div>' +
             '<div class="card-count-badge" id="count-' + i + '">' + player.hand.length + '</div>' +
           '</div>' +
           '<div class="player-name">' + player.name + '</div>' +
@@ -835,8 +886,11 @@ CrazyEightGame.prototype = {
       item.className = 'turn-order-item' + (isCurrent ? ' current' : '');
       var arrow = self.direction === 1 ? '▼' : '▲';
       if (i === order.length - 1) arrow = '';
+      var avatarHtml = p.photo
+        ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+        : p.avatar;
       item.innerHTML =
-        '<div class="to-avatar" style="background:' + p.avatarColor + '">' + p.avatar + '</div>' +
+        '<div class="to-avatar" style="background:' + p.avatarColor + '">' + avatarHtml + '</div>' +
         '<span>' + p.name + '</span>' +
         '<span class="to-arrow">' + arrow + '</span>';
       container.appendChild(item);
@@ -1280,6 +1334,7 @@ CrazyEightGame.prototype = {
           isHuman: p.isHuman,
           avatar: p.avatar,
           avatarColor: p.avatarColor,
+          photo: p.photo || null,
           left: p.left || false,
         };
       }),
@@ -1319,6 +1374,7 @@ CrazyEightGame.prototype = {
         isHuman: p.isHuman,
         avatar: p.avatar,
         avatarColor: p.avatarColor,
+        photo: p.photo || null,
         left: p.left || false,
       };
     });
@@ -1345,8 +1401,19 @@ CrazyEightGame.prototype = {
         // Always sync chat
         self.loadChatFromFirebase(data);
 
-        // Check for player leaves even during our turn
         normalizePlayers(data);
+
+        // Check for game over FIRST — even during our turn
+        if (data.gameOver) {
+          self.loadStateFromFirebase(data);
+          self.renderAll();
+          var winnerIdx = -1;
+          (data.players || []).forEach(function(p, i) { if ((p.hand || []).length === 0) winnerIdx = i; });
+          if (winnerIdx >= 0) self.endGame(winnerIdx);
+          return;
+        }
+
+        // Check for player leaves even during our turn
         var activePlayers = (data.players || []).filter(function(p) { return !p.left; });
         if (activePlayers.length <= 1) {
           self.loadStateFromFirebase(data);
@@ -1375,12 +1442,6 @@ CrazyEightGame.prototype = {
         self.lastSyncTimestamp = data.actionTimestamp;
         self.loadStateFromFirebase(data);
         self.renderAll();
-
-        if (data.gameOver) {
-          var winnerIdx = -1;
-          data.players.forEach(function(p, i) { if (p.hand.length === 0) winnerIdx = i; });
-          if (winnerIdx >= 0) self.endGame(winnerIdx);
-        }
       });
     }, 1500);
   },
@@ -1408,6 +1469,7 @@ CrazyEightGame.prototype = {
       ts: Date.now()
     };
     this.chatMessages.push(chatMsg);
+    this.lastChatCount = this.chatMessages.length;
     this.renderChatMessage(chatMsg);
 
     if (this.mode === 'online') {
@@ -1529,7 +1591,7 @@ function createOnlineGame() {
   game.createdAt = Date.now();
 
   // Build initial state: just player 1 joined
-  var initialPlayers = [{ name: name, hand: [], isHuman: true, avatar: '😎', avatarColor: AVATAR_COLORS[0], joined: true }];
+  var initialPlayers = [{ name: name, hand: [], isHuman: true, avatar: getChosenAvatar(), avatarColor: AVATAR_COLORS[0], photo: getChosenAvatarPhoto(), joined: true }];
   for (var i = 1; i < count; i++) {
     initialPlayers.push({ name: '', hand: [], isHuman: true, avatar: AVATARS[i] || '🤖', avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length], joined: false });
   }
@@ -1636,6 +1698,8 @@ function joinOnlineGame() {
     if (slotIndex === -1) { alert('Game is full!'); return; }
 
     data.players[slotIndex].name = name;
+    data.players[slotIndex].avatar = getChosenAvatar();
+    data.players[slotIndex].photo = getChosenAvatarPhoto();
     data.players[slotIndex].joined = true;
     data.joinedCount = (data.joinedCount || 1) + 1;
 
@@ -1728,8 +1792,11 @@ function renderLobby(data) {
   data.players.forEach(function(p, i) {
     var div = document.createElement('div');
     div.className = 'lobby-player';
+    var lobbyAvatarHtml = p.photo
+      ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+      : (p.avatar || AVATARS[i]);
     div.innerHTML =
-      '<div class="lp-avatar" style="background:' + (p.avatarColor || AVATAR_COLORS[i]) + '">' + (p.avatar || AVATARS[i]) + '</div>' +
+      '<div class="lp-avatar" style="background:' + (p.avatarColor || AVATAR_COLORS[i]) + '">' + lobbyAvatarHtml + '</div>' +
       '<div class="lp-name">' + (p.joined ? p.name : 'Waiting...') + '</div>' +
       '<div class="lp-status">' + (p.joined ? '✓ Ready' : '⏳') + '</div>';
     container.appendChild(div);
@@ -1805,6 +1872,76 @@ function showHelp() {
 document.getElementById('chat-input').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); game.sendChat(); }
 });
+
+// ===== AVATAR PICKER =====
+var chosenAvatar = '😎';
+var chosenAvatarType = 'emoji'; // 'emoji' or 'photo'
+var chosenAvatarPhoto = null;
+
+var EMOJI_CHOICES = ['😎','😤','🤩','🥶','😈','🤠','👻','🥳','😺','🤖','🦊','🐸','🐻','🦁','🐶','🐱','💀','👽','🤡','🎃','🧠','🔥','⭐','💎'];
+
+function openEmojiPicker() {
+  var grid = document.getElementById('emoji-options');
+  grid.innerHTML = '';
+  EMOJI_CHOICES.forEach(function(e) {
+    var btn = document.createElement('div');
+    btn.className = 'emoji-opt';
+    btn.textContent = e;
+    btn.onclick = function() { pickEmoji(e); };
+    grid.appendChild(btn);
+  });
+  document.getElementById('emoji-grid-overlay').classList.add('show');
+}
+
+function closeEmojiPicker() {
+  document.getElementById('emoji-grid-overlay').classList.remove('show');
+}
+
+function pickEmoji(emoji) {
+  chosenAvatar = emoji;
+  chosenAvatarType = 'emoji';
+  chosenAvatarPhoto = null;
+  var preview = document.getElementById('avatar-preview');
+  preview.innerHTML = emoji;
+  closeEmojiPicker();
+}
+
+function handlePhotoUpload(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    // Resize to small thumbnail
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = 80;
+      canvas.height = 80;
+      var ctx = canvas.getContext('2d');
+      var size = Math.min(img.width, img.height);
+      var sx = (img.width - size) / 2;
+      var sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 80, 80);
+      chosenAvatarPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      chosenAvatar = '📷';
+      chosenAvatarType = 'photo';
+      var preview = document.getElementById('avatar-preview');
+      preview.innerHTML = '<img src="' + chosenAvatarPhoto + '">';
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function getChosenAvatar() {
+  return chosenAvatar;
+}
+
+function getChosenAvatarPhoto() {
+  return chosenAvatarPhoto;
+}
 </script>
 </body>
 </html>
