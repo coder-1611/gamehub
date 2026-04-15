@@ -283,7 +283,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
   .avatar-face{font-size:20px}
   .card-count-badge{min-width:18px;height:18px;border-radius:9px;font-size:10px;top:-3px;right:-3px}
   .player-name{font-size:10px;max-width:60px}
-  .opponent-cards{display:none}
+  .opponent-cards{gap:0}
+  .card-back{width:28px;height:40px;border-radius:4px;border-width:1px}
+  .card-back::after{font-size:6px}
+  .card-back+.card-back{margin-left:-20px}
 
   /* Direction ring — smaller */
   #direction-ring{width:120px;height:120px}
@@ -327,15 +330,16 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
   .turn-order-item.current{padding:4px 8px 4px 5px;font-size:10px}
   .turn-order-item .to-avatar{width:18px;height:18px;font-size:10px}
 
-  /* Chat panel */
-  #chat-panel{bottom:126px;left:6px;width:180px}
-  #chat-messages{max-height:80px}
-  .chat-msg .cm-avatar{width:18px;height:18px;font-size:10px}
-  .chat-msg .cm-content{padding:3px 8px;max-width:140px}
-  .chat-msg .cm-name{font-size:8px}
+  /* Chat panel — collapsed by default, tap to expand */
+  #chat-panel{bottom:126px;left:6px;width:160px}
+  #chat-messages{max-height:0;overflow:hidden;transition:max-height .3s;padding:0}
+  #chat-panel.chat-open #chat-messages{max-height:100px;padding:4px 0}
+  .chat-msg .cm-avatar{width:16px;height:16px;font-size:9px}
+  .chat-msg .cm-content{padding:2px 6px;max-width:120px}
+  .chat-msg .cm-name{display:none}
   .chat-msg .cm-text{font-size:10px}
-  #chat-input{padding:6px 10px;font-size:11px}
-  #chat-send{padding:6px 10px;font-size:12px}
+  #chat-input{padding:5px 8px;font-size:10px}
+  #chat-send{padding:5px 8px;font-size:11px}
 
   /* Current color indicator */
   #current-color-indicator{bottom:2px}
@@ -1970,6 +1974,14 @@ function showHelp() {
 // Chat Enter key
 document.getElementById('chat-input').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); game.sendChat(); }
+});
+
+// Mobile chat toggle — expand on focus, collapse on blur
+document.getElementById('chat-input').addEventListener('focus', function() {
+  document.getElementById('chat-panel').classList.add('chat-open');
+});
+document.getElementById('chat-input').addEventListener('blur', function() {
+  setTimeout(function() { document.getElementById('chat-panel').classList.remove('chat-open'); }, 200);
 });
 
 // ===== AVATAR PICKER =====
