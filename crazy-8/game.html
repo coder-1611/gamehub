@@ -255,12 +255,111 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 #photo-input{display:none}
 
 @media(max-width:768px){
-  #player-hand .game-card{width:65px;height:95px;margin-left:-15px}
-  .card-back{width:40px;height:58px}
-  .avatar{width:44px;height:44px}
-  .avatar-face{font-size:24px}
-  .panel{min-width:320px;padding:22px 28px}
-  .screen h1{font-size:44px}
+  /* Screens */
+  .screen h1{font-size:36px}
+  .screen .subtitle{font-size:13px;margin-bottom:24px}
+  .panel{min-width:0;width:90vw;max-width:360px;padding:18px 20px}
+  .mode-buttons{flex-direction:column;gap:10px}
+  .mode-btn{padding:18px 16px}
+  .btn-primary{padding:12px 40px;font-size:17px}
+  .btn-secondary{padding:10px 28px;font-size:14px}
+  .avatar-picker{gap:10px}
+  .avatar-preview{width:52px;height:52px;font-size:28px}
+
+  /* Turn banner */
+  #turn-banner{height:40px;gap:8px}
+  #turn-banner .turn-text{font-size:14px}
+  #turn-banner.your-turn .turn-text{font-size:17px}
+  #turn-banner .turn-dot{width:10px;height:10px}
+
+  /* Player slots */
+  .player-slot{gap:6px}
+  .player-slot.top{top:42px}
+  .player-slot.left{left:6px;top:42%}
+  .player-slot.right{right:6px;top:42%}
+  .player-slot.top-left{top:44px;left:10px}
+  .player-slot.top-right{top:44px;right:10px}
+  .avatar{width:36px;height:36px;border-width:2px}
+  .avatar-face{font-size:20px}
+  .card-count-badge{min-width:18px;height:18px;border-radius:9px;font-size:10px;top:-3px;right:-3px}
+  .player-name{font-size:10px;max-width:60px}
+  .opponent-cards{display:none}
+
+  /* Direction ring — smaller */
+  #direction-ring{width:120px;height:120px}
+  .dir-arrow{font-size:16px}
+  #direction-label{font-size:9px;transform:translate(-50%,45px)}
+
+  /* Center area */
+  #center-area{gap:10px}
+  #draw-pile-container,.draw-card-back{width:52px;height:75px}
+  #discard-pile{width:52px;height:75px}
+  #discard-pile .game-card,.game-card{width:52px;height:75px}
+  .card-center{font-size:26px}
+  .card-corner .card-corner-num,.card-corner-bottom .card-corner-num{width:16px;height:16px;font-size:9px}
+  .card-corner{top:3px;left:4px}
+  .card-corner-bottom{bottom:3px;right:4px}
+  #draw-hint{font-size:9px;bottom:-20px}
+
+  /* Status bar */
+  #status-bar{transform:translate(-50%,-55px)}
+  .toast{font-size:12px;padding:7px 16px}
+
+  /* Player hand */
+  #player-hand-area{height:120px;padding-bottom:6px}
+  #player-hand .game-card{width:52px;height:75px;margin-left:-14px}
+  #player-hand .game-card:hover{transform:translateY(-14px)}
+  #player-hand .game-card.playable:hover{transform:translateY(-18px) scale(1.03)}
+  #player-hand-info{bottom:100px}
+  #player-hand-info .avatar{width:32px;height:32px}
+  #player-hand-info .avatar-face{font-size:18px}
+  #player-hand-info .player-name{font-size:10px}
+
+  /* Buttons */
+  #crazy8-call-btn{bottom:130px;right:10px;padding:7px 14px;font-size:12px}
+  #pass-btn{bottom:130px;right:10px;padding:7px 14px;font-size:12px}
+  #help-btn{width:32px;height:32px;font-size:16px;top:10px;left:8px}
+  #menu-btn{width:32px;height:32px;font-size:18px;top:10px;right:8px}
+
+  /* Turn order sidebar */
+  #turn-order{right:6px;top:44px;gap:2px}
+  .turn-order-item{padding:3px 6px 3px 4px;font-size:10px;gap:5px}
+  .turn-order-item.current{padding:4px 8px 4px 5px;font-size:10px}
+  .turn-order-item .to-avatar{width:18px;height:18px;font-size:10px}
+
+  /* Chat panel */
+  #chat-panel{bottom:126px;left:6px;width:180px}
+  #chat-messages{max-height:80px}
+  .chat-msg .cm-avatar{width:18px;height:18px;font-size:10px}
+  .chat-msg .cm-content{padding:3px 8px;max-width:140px}
+  .chat-msg .cm-name{font-size:8px}
+  .chat-msg .cm-text{font-size:10px}
+  #chat-input{padding:6px 10px;font-size:11px}
+  #chat-send{padding:6px 10px;font-size:12px}
+
+  /* Current color indicator */
+  #current-color-indicator{bottom:2px}
+  #current-color-dot{width:14px;height:14px}
+  #current-color-label{font-size:9px}
+
+  /* Color picker */
+  #color-picker{padding:20px;border-radius:16px}
+  #color-picker h3{font-size:18px;margin-bottom:14px}
+  .color-option{width:64px;height:64px;font-size:12px;border-radius:12px}
+
+  /* Game over */
+  #game-over-panel{padding:28px 24px;min-width:0;width:90vw;max-width:340px;border-radius:18px}
+  #game-over-panel h2{font-size:28px}
+  #winner-name{font-size:16px}
+  .score-row{font-size:13px;padding:6px 0}
+
+  /* Emoji picker */
+  #emoji-grid{padding:18px;max-width:300px}
+  .emoji-options{grid-template-columns:repeat(6,1fr);gap:6px}
+  .emoji-opt{width:40px;height:40px;font-size:22px;border-radius:10px}
+
+  /* Chat bubble on opponents */
+  .chat-bubble{font-size:10px;padding:4px 10px;border-radius:10px;bottom:-22px}
 }
 </style>
 </head>
