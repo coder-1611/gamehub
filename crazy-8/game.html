@@ -92,8 +92,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 
 .card-count-badge{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:linear-gradient(135deg,#FFD54F,#FF8F00);color:#4A1212;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #4A1212;z-index:5;padding:0 4px}
 .player-name{color:white;font-size:13px;font-weight:800;text-shadow:1px 1px 3px rgba(0,0,0,0.5);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
+.player-slot.player-left{opacity:0.35;pointer-events:none}
+.player-slot.player-left .avatar{border-color:rgba(255,255,255,0.1)!important;box-shadow:none!important;animation:none!important}
+.player-slot.player-left .player-name::after{content:' (left)';color:rgba(255,255,255,0.4);font-size:11px}
 
-.opponent-cards{display:flex}
+.opponent-cards{display:flex;flex-wrap:wrap;gap:2px 0}
 .card-back{width:50px;height:72px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:6px;border:2px solid #333;position:relative;box-shadow:2px 2px 8px rgba(0,0,0,0.4);flex-shrink:0}
 .card-back::after{content:'CRAZY 8';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);color:rgba(255,255,255,0.15);font-family:'Fredoka One',cursive;font-size:9px;letter-spacing:1px;white-space:nowrap}
 .card-back+.card-back{margin-left:-35px}
@@ -183,6 +186,24 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 /* ===== CHAT BUBBLE ===== */
 .chat-bubble{position:absolute;background:#3b5998;color:white;padding:6px 14px;border-radius:14px;font-size:13px;font-weight:700;white-space:nowrap;z-index:15;animation:bubble-in .3s ease;pointer-events:none;bottom:-30px;left:50%;transform:translateX(-50%)}
 @keyframes bubble-in{from{opacity:0;transform:translateX(-50%) scale(0.8)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+
+/* ===== CHAT PANEL ===== */
+#chat-panel{position:absolute;bottom:175px;left:16px;width:260px;z-index:30;display:flex;flex-direction:column;gap:6px}
+#chat-messages{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding:4px 0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.15) transparent}
+#chat-messages::-webkit-scrollbar{width:4px}
+#chat-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.chat-msg{display:flex;align-items:flex-start;gap:6px;animation:chat-fade-in .3s ease}
+@keyframes chat-fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-msg .cm-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.chat-msg .cm-content{background:rgba(0,0,0,0.45);border-radius:10px;padding:5px 10px;max-width:210px}
+.chat-msg .cm-name{font-size:10px;font-weight:800;color:rgba(255,255,255,0.5);margin-bottom:1px}
+.chat-msg .cm-text{font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);word-break:break-word}
+#chat-input-row{display:flex;gap:6px}
+#chat-input{flex:1;padding:8px 12px;border:2px solid rgba(255,255,255,0.15);border-radius:20px;background:rgba(0,0,0,0.4);color:white;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;outline:none;transition:border-color .2s}
+#chat-input:focus{border-color:rgba(255,213,79,0.5)}
+#chat-input::placeholder{color:rgba(255,255,255,0.3)}
+#chat-send{padding:8px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#3b5998,#2d4373);color:white;font-size:14px;cursor:pointer;transition:transform .15s,background .15s;font-weight:900}
+#chat-send:hover{transform:scale(1.1);background:linear-gradient(135deg,#4a6bb5,#3b5998)}
 
 /* ===== GAME OVER ===== */
 #game-over-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:300;backdrop-filter:blur(6px)}
@@ -376,6 +397,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 
     <button id="crazy8-call-btn" onclick="game.callCrazy8()">CRAZY 8!</button>
     <button id="pass-btn" onclick="game.passTurn()">PASS</button>
+
+    <!-- Chat -->
+    <div id="chat-panel">
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Type a message..." maxlength="80">
+        <button id="chat-send" onclick="game.sendChat()">➤</button>
+      </div>
+    </div>
   </div>
 
   <!-- Color picker -->
@@ -442,7 +472,13 @@ function showScreen(id) {
 }
 
 function getPlayerName() {
-  return document.getElementById('input-name').value.trim() || 'Player';
+  var name = document.getElementById('input-name').value.trim();
+  if (!name || name.toLowerCase() === 'player') {
+    var newName = prompt('Your name is set to "Player". Enter a new name or press OK to keep it:', 'Player');
+    name = (newName && newName.trim()) ? newName.trim().substring(0, 15) : 'Player';
+    document.getElementById('input-name').value = name;
+  }
+  return name;
 }
 
 // Setup count selectors
@@ -573,7 +609,12 @@ CrazyEightGame.prototype = {
     this.mode = 'online';
     this.gameCode = code;
     this.myPlayerIndex = myIndex;
+    this.chatMessages = [];
+    this.lastChatCount = 0;
+    var chatEl = document.getElementById('chat-messages');
+    if (chatEl) chatEl.innerHTML = '';
     this.loadStateFromFirebase(data);
+    this.loadChatFromFirebase(data);
     this.showTable();
     this.renderAll();
     this.startPolling();
@@ -593,6 +634,10 @@ CrazyEightGame.prototype = {
     this.animating = false;
     this.drewThisTurn = false;
     this.actionTimestamp = Date.now();
+    this.chatMessages = [];
+    this.lastChatCount = 0;
+    var chatEl = document.getElementById('chat-messages');
+    if (chatEl) chatEl.innerHTML = '';
 
     this.players = [];
     this.players.push({
@@ -661,7 +706,8 @@ CrazyEightGame.prototype = {
       var slot = document.createElement('div');
       slot.className = 'player-slot ' + pos;
       slot.id = 'player-slot-' + i;
-      var active = i === this.currentPlayerIndex ? ' active-turn' : '';
+      if (player.left) slot.classList.add('player-left');
+      var active = i === this.currentPlayerIndex && !player.left ? ' active-turn' : '';
       if (active) slot.classList.add('active-turn');
       slot.innerHTML =
         '<div class="player-info">' +
@@ -686,9 +732,17 @@ CrazyEightGame.prototype = {
   },
 
   renderCardBacks: function(count) {
-    var show = Math.min(count, 3);
+    var perRow = 8;
+    var overlap = -35;
     var html = '';
-    for (var i = 0; i < show; i++) html += '<div class="card-back"></div>';
+    for (var i = 0; i < count; i++) {
+      var posInRow = i % perRow;
+      if (i > 0 && posInRow === 0) {
+        html += '<div style="width:100%;height:2px"></div>';
+      }
+      var ml = posInRow === 0 ? '' : ' style="margin-left:' + overlap + 'px"';
+      html += '<div class="card-back"' + ml + '></div>';
+    }
     return html;
   },
 
@@ -793,7 +847,9 @@ CrazyEightGame.prototype = {
     var order = [];
     var idx = this.currentPlayerIndex;
     for (var i = 0; i < this.playerCount; i++) {
-      order.push(idx);
+      if (!this.players[idx] || !this.players[idx].left) {
+        order.push(idx);
+      }
       idx = (idx + this.direction + this.playerCount) % this.playerCount;
     }
     return order;
@@ -802,12 +858,13 @@ CrazyEightGame.prototype = {
   renderDirection: function() {
     var ring = document.getElementById('direction-ring');
     var label = document.getElementById('direction-label');
-    var cw = this.direction === 1;
+    // direction===1 means indices increase: you(bottom)→left→top→right = counter-clockwise visually
+    var cw = this.direction === -1;
     ring.innerHTML =
-      '<div class="dir-arrow cw-top">' + (cw ? '←' : '→') + '</div>' +
-      '<div class="dir-arrow cw-right">' + (cw ? '↑' : '↓') + '</div>' +
-      '<div class="dir-arrow cw-bottom">' + (cw ? '→' : '←') + '</div>' +
-      '<div class="dir-arrow cw-left">' + (cw ? '↓' : '↑') + '</div>';
+      '<div class="dir-arrow cw-top">' + (cw ? '→' : '←') + '</div>' +
+      '<div class="dir-arrow cw-right">' + (cw ? '↓' : '↑') + '</div>' +
+      '<div class="dir-arrow cw-bottom">' + (cw ? '←' : '→') + '</div>' +
+      '<div class="dir-arrow cw-left">' + (cw ? '↑' : '↓') + '</div>';
     label.textContent = cw ? '↻ Clockwise' : '↺ Counter-clockwise';
   },
 
@@ -1019,6 +1076,17 @@ CrazyEightGame.prototype = {
 
   nextTurn: function() {
     this.animating = false;
+
+    // Check if only 1 active player remains
+    var active = this.getActivePlayers();
+    if (active.length <= 1 && this.mode === 'online') {
+      if (active.length === 1) {
+        var winnerIdx = this.players.indexOf(active[0]);
+        this.endGame(winnerIdx);
+      }
+      return;
+    }
+
     var next = this.getNextPlayer(this.currentPlayerIndex);
 
     if (this.skipNext) {
@@ -1063,7 +1131,17 @@ CrazyEightGame.prototype = {
   },
 
   getNextPlayer: function(from) {
-    return (from + this.direction + this.playerCount) % this.playerCount;
+    var next = (from + this.direction + this.playerCount) % this.playerCount;
+    var tries = 0;
+    while (this.players[next] && this.players[next].left && tries < this.playerCount) {
+      next = (next + this.direction + this.playerCount) % this.playerCount;
+      tries++;
+    }
+    return next;
+  },
+
+  getActivePlayers: function() {
+    return this.players.filter(function(p) { return !p.left; });
   },
 
   // ===== BOT AI =====
@@ -1202,6 +1280,7 @@ CrazyEightGame.prototype = {
           isHuman: p.isHuman,
           avatar: p.avatar,
           avatarColor: p.avatarColor,
+          left: p.left || false,
         };
       }),
       deck: this.deck.map(function(c) { return c.toJSON(); }),
@@ -1240,6 +1319,7 @@ CrazyEightGame.prototype = {
         isHuman: p.isHuman,
         avatar: p.avatar,
         avatarColor: p.avatarColor,
+        left: p.left || false,
       };
     });
     this.deck = (data.deck || []).map(cardFromJSON);
@@ -1258,12 +1338,39 @@ CrazyEightGame.prototype = {
     var self = this;
     this.pollTimer = setInterval(function() {
       if (self.gameOver) return;
-      // Only poll when it's NOT our turn
-      if (self.currentPlayerIndex === self.myPlayerIndex) return;
 
       firebaseLoad(self.gameCode).then(function(data) {
-        if (!data || !data.actionTimestamp) return;
-        if (data.actionTimestamp <= self.lastSyncTimestamp) return;
+        if (!data) return;
+
+        // Always sync chat
+        self.loadChatFromFirebase(data);
+
+        // Check for player leaves even during our turn
+        normalizePlayers(data);
+        var activePlayers = (data.players || []).filter(function(p) { return !p.left; });
+        if (activePlayers.length <= 1) {
+          self.loadStateFromFirebase(data);
+          self.renderAll();
+          if (activePlayers.length === 1) {
+            var winIdx = -1;
+            data.players.forEach(function(p, i) { if (!p.left) winIdx = i; });
+            if (winIdx >= 0) self.endGame(winIdx);
+          }
+          return;
+        }
+
+        // Only sync full game state when it's NOT our turn
+        if (self.currentPlayerIndex === self.myPlayerIndex) {
+          // Still update opponent left status visually
+          if (data.actionTimestamp && data.actionTimestamp > self.lastSyncTimestamp) {
+            for (var pi = 0; pi < self.players.length; pi++) {
+              if (data.players[pi] && data.players[pi].left) self.players[pi].left = true;
+            }
+            self.renderOpponents();
+          }
+          return;
+        }
+        if (!data.actionTimestamp || data.actionTimestamp <= self.lastSyncTimestamp) return;
 
         self.lastSyncTimestamp = data.actionTimestamp;
         self.loadStateFromFirebase(data);
@@ -1280,6 +1387,107 @@ CrazyEightGame.prototype = {
 
   stopPolling: function() {
     if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  },
+
+  // ===== CHAT =====
+  chatMessages: [],
+  lastChatCount: 0,
+
+  sendChat: function(text) {
+    var input = document.getElementById('chat-input');
+    var msg = text || (input ? input.value.trim() : '');
+    if (!msg) return;
+    if (input) input.value = '';
+
+    var me = this.players[this.myPlayerIndex];
+    var chatMsg = {
+      name: me.name,
+      avatar: me.avatar,
+      avatarColor: me.avatarColor,
+      text: msg,
+      ts: Date.now()
+    };
+    this.chatMessages.push(chatMsg);
+    this.renderChatMessage(chatMsg);
+
+    if (this.mode === 'online') {
+      this.saveChatToFirebase();
+    }
+
+    // In AI mode, bots might reply
+    if (this.mode === 'ai') {
+      var self = this;
+      var delay = 800 + Math.random() * 1500;
+      setTimeout(function() {
+        var bots = self.players.filter(function(p, i) { return i !== self.myPlayerIndex; });
+        if (bots.length === 0) return;
+        if (Math.random() < 0.6) {
+          var bot = bots[Math.floor(Math.random() * bots.length)];
+          var replies = ['lol','haha','ok','bruh','sure','nice','what','😂','👀','no way','gg','💀','😭','stopppp','fr fr','nah'];
+          var reply = replies[Math.floor(Math.random() * replies.length)];
+          var botMsg = { name: bot.name, avatar: bot.avatar, avatarColor: bot.avatarColor, text: reply, ts: Date.now() };
+          self.chatMessages.push(botMsg);
+          self.renderChatMessage(botMsg);
+        }
+      }, delay);
+    }
+  },
+
+  renderChatMessage: function(msg) {
+    var container = document.getElementById('chat-messages');
+    var div = document.createElement('div');
+    div.className = 'chat-msg';
+    div.innerHTML =
+      '<div class="cm-avatar" style="background:' + (msg.avatarColor || '#555') + '">' + (msg.avatar || '😀') + '</div>' +
+      '<div class="cm-content"><div class="cm-name">' + this.escapeHTML(msg.name) + '</div><div class="cm-text">' + this.escapeHTML(msg.text) + '</div></div>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+
+    // Also show bubble on player slot
+    var pIdx = -1;
+    for (var i = 0; i < this.players.length; i++) {
+      if (this.players[i].name === msg.name && this.players[i].avatar === msg.avatar) { pIdx = i; break; }
+    }
+    if (pIdx >= 0 && pIdx !== this.myPlayerIndex) {
+      var slot = document.getElementById('player-slot-' + pIdx);
+      if (slot) {
+        var existing = slot.querySelector('.chat-bubble');
+        if (existing) existing.remove();
+        var bubble = document.createElement('div');
+        bubble.className = 'chat-bubble';
+        bubble.textContent = msg.text;
+        slot.appendChild(bubble);
+        setTimeout(function() { bubble.remove(); }, 3000);
+      }
+    }
+  },
+
+  escapeHTML: function(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  },
+
+  saveChatToFirebase: function() {
+    if (!this.gameCode) return;
+    var chatData = this.chatMessages.slice(-50); // keep last 50
+    fetch(FIREBASE_URL + '/games/' + this.gameCode + '/chat.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(chatData)
+    });
+  },
+
+  loadChatFromFirebase: function(data) {
+    if (!data || !data.chat) return;
+    var chats = normalizeArray(data.chat);
+    if (chats.length > this.lastChatCount) {
+      for (var i = this.lastChatCount; i < chats.length; i++) {
+        this.chatMessages.push(chats[i]);
+        this.renderChatMessage(chats[i]);
+      }
+      this.lastChatCount = chats.length;
+    }
   },
 
   // ===== UTILS =====
@@ -1302,7 +1510,9 @@ var game = new CrazyEightGame();
 // ===== START GAME FUNCTIONS =====
 function startAIGame() {
   var count = getSelectedCount('ai-count-row');
-  game.playerName = getPlayerName();
+  var name = getPlayerName();
+
+  game.playerName = name;
   game.initAI(count);
 }
 
@@ -1310,6 +1520,7 @@ function createOnlineGame() {
   var code = generateCode();
   var count = getSelectedCount('online-count-row');
   var name = getPlayerName();
+
 
   game.playerName = name;
   game.playerCount = count;
@@ -1335,6 +1546,7 @@ function createOnlineGame() {
   };
 
   firebaseSave(code, data).then(function() {
+    saveDevicePlayer(code, 0, name);
     showScreen('screen-lobby');
     document.getElementById('lobby-code').textContent = code;
     renderLobby(data);
@@ -1342,14 +1554,31 @@ function createOnlineGame() {
   });
 }
 
+function saveDevicePlayer(code, index, name) {
+  try {
+    var key = 'crazy8_' + code;
+    var existing = JSON.parse(localStorage.getItem(key) || '[]');
+    // Don't duplicate
+    for (var i = 0; i < existing.length; i++) {
+      if (existing[i].index === index) { existing[i].name = name; localStorage.setItem(key, JSON.stringify(existing)); return; }
+    }
+    existing.push({ index: index, name: name });
+    localStorage.setItem(key, JSON.stringify(existing));
+  } catch(e) {}
+}
+
+function getDevicePlayers(code) {
+  try { return JSON.parse(localStorage.getItem('crazy8_' + code) || '[]'); } catch(e) { return []; }
+}
+
 function joinOnlineGame() {
   var code = document.getElementById('input-code').value.trim().toUpperCase();
   if (code.length < 5) { alert('Please enter a valid 5-letter code'); return; }
   var name = getPlayerName();
 
+
   firebaseLoad(code).then(function(data) {
     if (!data || data.type !== 'crazy8') { alert('Game not found!'); return; }
-    if (data.status === 'playing') { alert('Game already in progress!'); return; }
     if (data.status === 'finished') { alert('Game already finished!'); return; }
 
     // Firebase may convert arrays to objects — normalize
@@ -1360,6 +1589,44 @@ function joinOnlineGame() {
       }
       data.players = arr;
     }
+
+    // Check if this device already has a player in this game
+    var devicePlayers = getDevicePlayers(code);
+    if (devicePlayers.length > 0) {
+      var prev = devicePlayers[devicePlayers.length - 1];
+      var prevPlayer = data.players[prev.index];
+      if (prevPlayer && prevPlayer.joined) {
+        var rejoin = confirm('Are you ' + prev.name + '? Press OK to rejoin as them, or Cancel to join as a new player.');
+        if (rejoin) {
+          // Rejoin as the previous player
+          game.gameCode = code;
+          game.myPlayerIndex = prev.index;
+          game.playerName = prev.name;
+
+          if (data.status === 'playing') {
+            // If they had left, mark them back
+            if (data.players[prev.index].left) {
+              data.players[prev.index].left = false;
+              data.actionTimestamp = Date.now();
+              firebaseSave(code, data).then(function() {
+                game.initOnline(data, code, prev.index);
+              });
+            } else {
+              game.initOnline(data, code, prev.index);
+            }
+          } else {
+            showScreen('screen-lobby');
+            document.getElementById('lobby-code').textContent = code;
+            renderLobby(data);
+            startLobbyPolling(code, data.playerCount);
+          }
+          return;
+        }
+        // User said no — fall through to join as new player
+      }
+    }
+
+    if (data.status === 'playing') { alert('Game already in progress!'); return; }
 
     // Find first empty slot
     var slotIndex = -1;
@@ -1409,6 +1676,7 @@ function joinOnlineGame() {
     }
 
     firebaseSave(code, data).then(function() {
+      saveDevicePlayer(code, slotIndex, name);
       game.gameCode = code;
       game.myPlayerIndex = slotIndex;
       game.playerName = name;
@@ -1493,7 +1761,24 @@ function leaveLobby() {
   showScreen('screen-menu');
 }
 
-function leaveGame() {
+function leaveGame(skipConfirm) {
+  if (!skipConfirm && !game.gameOver) {
+    if (!confirm('Leave the game? Your progress will be lost.')) return;
+  }
+
+  // Mark player as left in Firebase so others can continue
+  if (game.mode === 'online' && game.gameCode && !game.gameOver && game.players[game.myPlayerIndex]) {
+    game.players[game.myPlayerIndex].left = true;
+    // If it was our turn, advance to the next player
+    if (game.currentPlayerIndex === game.myPlayerIndex) {
+      var next = game.getNextPlayer(game.myPlayerIndex);
+      game.currentPlayerIndex = next;
+      game.drewThisTurn = false;
+    }
+    game.actionTimestamp = Date.now();
+    game.saveToFirebase();
+  }
+
   game.stopPolling();
   game.gameOver = true;
   document.getElementById('game-over-overlay').classList.remove('show');
@@ -1515,6 +1800,11 @@ function showHelp() {
     '• First player to empty their hand wins!'
   );
 }
+
+// Chat Enter key
+document.getElementById('chat-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); game.sendChat(); }
+});
 </script>
 </body>
 </html>
