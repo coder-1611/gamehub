@@ -220,7 +220,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 @keyframes pulse-btn{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 
 /* ===== ONE CARD ALERT ===== */
-#one-card-alert{position:fixed;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;z-index:250;pointer-events:none;background:rgba(0,0,0,0.5)}
+#one-card-alert{position:fixed;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;z-index:250;cursor:pointer;background:rgba(0,0,0,0.5)}
 #one-card-alert.show{display:flex}
 #one-card-alert .oca-box{text-align:center;animation:oca-pop .4s cubic-bezier(0.175,0.885,0.32,1.275) forwards}
 #one-card-alert .oca-title{font-family:'Fredoka One',cursive;font-size:72px;color:#FF6F00;text-shadow:0 0 40px rgba(255,111,0,0.8),0 4px 0 #C43E00,0 6px 20px rgba(0,0,0,0.5);letter-spacing:4px;animation:oca-shake .5s ease-in-out .3s}
@@ -542,7 +542,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
     <button id="pass-btn" onclick="game.passTurn()">PASS</button>
 
     <!-- One Card Alert -->
-    <div id="one-card-alert">
+    <div id="one-card-alert" onclick="game.callCrazy8()">
       <div class="oca-box">
         <div class="oca-title">ONE CARD!!!</div>
         <div class="oca-name" id="one-card-name"></div>
@@ -1177,9 +1177,11 @@ CrazyEightGame.prototype = {
   },
 
   callCrazy8: function() {
+    if (this.crazy8PlayerIndex === -1) return;
     this.calledCrazy8 = true;
     if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
     document.getElementById('crazy8-call-btn').style.display = 'none';
+    document.getElementById('one-card-alert').classList.remove('show');
     var callerIndex = this.myPlayerIndex;
     var targetIndex = this.crazy8PlayerIndex;
 
