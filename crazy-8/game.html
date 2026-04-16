@@ -768,6 +768,8 @@ CrazyEightGame.prototype = {
     this.mustDraw = 0;
     this.skipNext = false;
     this.calledCrazy8 = false;
+    this.crazy8PlayerIndex = -1;
+    this.crazy8Timer = null;
     this.pendingColorPick = false;
     this.animating = false;
     this.drewThisTurn = false;
@@ -1115,30 +1117,58 @@ CrazyEightGame.prototype = {
     this.drewThisTurn = false;
     player.hand.splice(cardIndex, 1);
 
-    // Crazy 8 call check
-    if (player.hand.length === 1) {
-      this.calledCrazy8 = false;
-      document.getElementById('crazy8-call-btn').style.display = 'block';
-      var self = this;
-      setTimeout(function() {
-        if (!self.calledCrazy8 && player.hand.length === 1) {
-          self.showToast(player.name + ' forgot CRAZY 8! +2 cards');
-          player.hand.push(self.drawFromDeck());
-          player.hand.push(self.drawFromDeck());
-          self.renderHand();
-          self.updateCardCounts();
-        }
-        document.getElementById('crazy8-call-btn').style.display = 'none';
-      }, 3000);
-    }
-
     this.executePlay(card, this.myPlayerIndex);
+
+    // Crazy 8 call check — show button to everyone
+    if (player.hand.length === 1) {
+      this.startCrazy8Call(this.myPlayerIndex);
+    }
+  },
+
+  startCrazy8Call: function(playerIndex) {
+    this.crazy8PlayerIndex = playerIndex;
+    this.calledCrazy8 = false;
+    if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
+    document.getElementById('crazy8-call-btn').style.display = 'block';
+
+    var self = this;
+    this.crazy8Timer = setTimeout(function() {
+      if (!self.calledCrazy8 && self.players[playerIndex] && self.players[playerIndex].hand.length === 1) {
+        self.showToast(self.players[playerIndex].name + ' forgot CRAZY 8! +2 cards');
+        self.players[playerIndex].hand.push(self.drawFromDeck());
+        self.players[playerIndex].hand.push(self.drawFromDeck());
+        if (playerIndex === self.myPlayerIndex) self.renderHand();
+        self.updateCardCounts();
+        if (self.mode === 'online') self.saveToFirebase();
+      }
+      document.getElementById('crazy8-call-btn').style.display = 'none';
+      self.crazy8PlayerIndex = -1;
+    }, 3000);
   },
 
   callCrazy8: function() {
     this.calledCrazy8 = true;
+    if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
     document.getElementById('crazy8-call-btn').style.display = 'none';
-    this.showToast(this.players[this.myPlayerIndex].name + ': CRAZY 8!');
+    var callerIndex = this.myPlayerIndex;
+    var targetIndex = this.crazy8PlayerIndex;
+
+    if (callerIndex === targetIndex) {
+      // Player called it on themselves — safe
+      this.showToast(this.players[callerIndex].name + ': CRAZY 8!');
+    } else {
+      // Another player caught them — penalty
+      if (this.players[targetIndex] && this.players[targetIndex].hand.length === 1) {
+        this.showToast(this.players[callerIndex].name + ' caught ' + this.players[targetIndex].name + '! +2 cards');
+        this.players[targetIndex].hand.push(this.drawFromDeck());
+        this.players[targetIndex].hand.push(this.drawFromDeck());
+        if (targetIndex === this.myPlayerIndex) this.renderHand();
+        this.updateCardCounts();
+        this.renderOpponents();
+      }
+    }
+    if (this.mode === 'online') this.saveToFirebase();
+    this.crazy8PlayerIndex = -1;
   },
 
   executePlay: function(card, playerIndex) {
@@ -1324,21 +1354,26 @@ CrazyEightGame.prototype = {
 
       if (Math.random() < 0.2) this.botChat(this.currentPlayerIndex);
 
-      if (player.hand.length === 1) {
-        var self = this;
-        if (Math.random() > 0.15) {
-          setTimeout(function() { self.showToast(player.name + ': CRAZY 8!'); }, 300);
-        } else {
-          setTimeout(function() {
-            self.showToast(player.name + ' forgot CRAZY 8! +2 cards');
-            player.hand.push(self.drawFromDeck());
-            player.hand.push(self.drawFromDeck());
-            self.updateCardCounts();
-          }, 1500);
-        }
-      }
-
       this.executePlay(chosen.card, this.currentPlayerIndex);
+
+      if (player.hand.length === 1) {
+        this.startCrazy8Call(this.currentPlayerIndex);
+        // Bot auto-calls with 85% chance after a delay
+        var self = this;
+        var botIdx = this.currentPlayerIndex;
+        if (Math.random() > 0.15) {
+          setTimeout(function() {
+            if (self.crazy8PlayerIndex === botIdx && !self.calledCrazy8) {
+              self.calledCrazy8 = true;
+              if (self.crazy8Timer) clearTimeout(self.crazy8Timer);
+              document.getElementById('crazy8-call-btn').style.display = 'none';
+              self.showToast(player.name + ': CRAZY 8!');
+              self.crazy8PlayerIndex = -1;
+            }
+          }, 500 + Math.random() * 1000);
+        }
+        // If bot doesn't call, player has 3 seconds to catch them
+      }
     } else {
       var drawn = this.drawFromDeck();
       player.hand.push(drawn);
@@ -1545,6 +1580,14 @@ CrazyEightGame.prototype = {
         self.lastSyncTimestamp = data.actionTimestamp;
         self.loadStateFromFirebase(data);
         self.renderAll();
+
+        // Check if any opponent just got to 1 card — trigger crazy 8 call
+        for (var ci = 0; ci < self.players.length; ci++) {
+          if (ci !== self.myPlayerIndex && self.players[ci].hand.length === 1 && !self.players[ci].left) {
+            self.startCrazy8Call(ci);
+            break;
+          }
+        }
       });
     }, 1500);
   },
