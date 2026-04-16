@@ -219,6 +219,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 #crazy8-call-btn{position:absolute;bottom:190px;right:30px;padding:10px 20px;background:linear-gradient(135deg,#FF6F00,#E65100);color:white;border:3px solid #FFD54F;border-radius:14px;font-family:'Fredoka One',cursive;font-size:16px;cursor:pointer;z-index:25;display:none;animation:pulse-btn 1s ease-in-out infinite;box-shadow:0 4px 15px rgba(255,111,0,0.4)}
 @keyframes pulse-btn{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 
+/* ===== ONE CARD ALERT ===== */
+#one-card-alert{position:fixed;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;z-index:250;pointer-events:none;background:rgba(0,0,0,0.5)}
+#one-card-alert.show{display:flex}
+#one-card-alert .oca-box{text-align:center;animation:oca-pop .4s cubic-bezier(0.175,0.885,0.32,1.275) forwards}
+#one-card-alert .oca-title{font-family:'Fredoka One',cursive;font-size:72px;color:#FF6F00;text-shadow:0 0 40px rgba(255,111,0,0.8),0 4px 0 #C43E00,0 6px 20px rgba(0,0,0,0.5);letter-spacing:4px;animation:oca-shake .5s ease-in-out .3s}
+#one-card-alert .oca-name{font-family:'Fredoka One',cursive;font-size:28px;color:#FFD54F;text-shadow:0 2px 10px rgba(0,0,0,0.5);margin-top:8px}
+@keyframes oca-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes oca-shake{0%,100%{transform:rotate(0)}20%{transform:rotate(-3deg)}40%{transform:rotate(3deg)}60%{transform:rotate(-2deg)}80%{transform:rotate(1deg)}}
+
 /* ===== PASS BTN ===== */
 #pass-btn{position:absolute;bottom:190px;right:30px;padding:10px 20px;background:rgba(255,255,255,0.15);color:white;border:2px solid rgba(255,255,255,0.3);border-radius:14px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;z-index:25;display:none;transition:all .2s}
 #pass-btn:hover{background:rgba(255,255,255,0.25)}
@@ -364,6 +373,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 
   /* Chat bubble on opponents */
   .chat-bubble{font-size:10px;padding:4px 10px;border-radius:10px;bottom:-22px}
+
+  /* One card alert */
+  #one-card-alert .oca-title{font-size:44px}
+  #one-card-alert .oca-name{font-size:20px}
 }
 </style>
 </head>
@@ -527,6 +540,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 
     <button id="crazy8-call-btn" onclick="game.callCrazy8()">CRAZY 8!</button>
     <button id="pass-btn" onclick="game.passTurn()">PASS</button>
+
+    <!-- One Card Alert -->
+    <div id="one-card-alert">
+      <div class="oca-box">
+        <div class="oca-title">ONE CARD!!!</div>
+        <div class="oca-name" id="one-card-name"></div>
+      </div>
+    </div>
 
     <!-- Chat -->
     <div id="chat-panel">
@@ -1125,11 +1146,20 @@ CrazyEightGame.prototype = {
     }
   },
 
+  showOneCardAlert: function(playerIndex) {
+    if (playerIndex === this.myPlayerIndex) return; // Don't show to the player themselves
+    var alert = document.getElementById('one-card-alert');
+    document.getElementById('one-card-name').textContent = this.players[playerIndex].avatar + ' ' + this.players[playerIndex].name;
+    alert.classList.add('show');
+    setTimeout(function() { alert.classList.remove('show'); }, 2000);
+  },
+
   startCrazy8Call: function(playerIndex) {
     this.crazy8PlayerIndex = playerIndex;
     this.calledCrazy8 = false;
     if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
     document.getElementById('crazy8-call-btn').style.display = 'block';
+    this.showOneCardAlert(playerIndex);
 
     var self = this;
     this.crazy8Timer = setTimeout(function() {
