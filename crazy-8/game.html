@@ -228,6 +228,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
 #oca-crazy8-btn{margin-top:24px;padding:18px 50px;font-family:'Fredoka One',cursive;font-size:32px;background:linear-gradient(135deg,#FF6F00,#E65100);color:white;border:4px solid #FFD54F;border-radius:20px;cursor:pointer;animation:pulse-btn .8s ease-in-out infinite;box-shadow:0 6px 30px rgba(255,111,0,0.6);letter-spacing:2px}
 @keyframes oca-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes oca-shake{0%,100%{transform:rotate(0)}20%{transform:rotate(-3deg)}40%{transform:rotate(3deg)}60%{transform:rotate(-2deg)}80%{transform:rotate(1deg)}}
+/* ===== CRAZY 8 REACTION RESULTS ===== */
+#c8-results{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);display:none;z-index:300;background:linear-gradient(135deg,#1a1a2e,#16213e);border:3px solid #FF6F00;border-radius:20px;padding:24px 32px;min-width:260px;text-align:center;box-shadow:0 8px 40px rgba(255,111,0,0.4);transition:transform .3s cubic-bezier(0.175,0.885,0.32,1.275)}
+#c8-results.show{display:block;transform:translate(-50%,-50%) scale(1)}
+#c8-results h3{font-family:'Fredoka One',cursive;color:#FF6F00;font-size:22px;margin:0 0 12px}
+#c8-results .c8r-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;margin:4px 0;font-size:15px;font-weight:700;color:#fff}
+#c8-results .c8r-row.fastest{background:rgba(255,111,0,0.2);border:1px solid #FF6F00}
+#c8-results .c8r-row .c8r-name{flex:1;text-align:left}
+#c8-results .c8r-row .c8r-time{color:#FFD54F;font-family:monospace;font-size:14px}
 
 /* ===== PASS BTN ===== */
 #pass-btn{position:absolute;bottom:190px;right:30px;padding:10px 20px;background:rgba(255,255,255,0.15);color:white;border:2px solid rgba(255,255,255,0.3);border-radius:14px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;z-index:25;display:none;transition:all .2s}
@@ -550,6 +558,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif
         <div class="oca-name" id="one-card-name"></div>
         <button id="oca-crazy8-btn" onclick="game.callCrazy8()" style="display:none">CRAZY 8!!!</button>
       </div>
+    </div>
+
+    <!-- Crazy 8 Reaction Results -->
+    <div id="c8-results">
+      <h3>⚡ CRAZY 8!!! Results</h3>
+      <div id="c8-results-rows"></div>
     </div>
 
     <!-- Chat -->
@@ -1162,6 +1176,8 @@ CrazyEightGame.prototype = {
   startCrazy8Call: function(playerIndex) {
     this.crazy8PlayerIndex = playerIndex;
     this.calledCrazy8 = false;
+    this.crazy8StartTime = Date.now();
+    this.crazy8ClickTimes = {};
     if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
     document.getElementById('crazy8-call-btn').style.display = 'block';
     this.showOneCardAlert(playerIndex);
@@ -1177,12 +1193,15 @@ CrazyEightGame.prototype = {
         if (self.mode === 'online') self.saveToFirebase();
       }
       document.getElementById('crazy8-call-btn').style.display = 'none';
+      self.showCrazy8Results(playerIndex, null);
       self.crazy8PlayerIndex = -1;
     }, 3000);
   },
 
   callCrazy8: function() {
     if (this.crazy8PlayerIndex === -1) return;
+    var elapsed = this.crazy8StartTime ? (Date.now() - this.crazy8StartTime) : 0;
+    this.crazy8ClickTimes[this.myPlayerIndex] = elapsed;
     this.calledCrazy8 = true;
     this.crazy8CalledBy = this.myPlayerIndex;
     if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
@@ -1193,10 +1212,8 @@ CrazyEightGame.prototype = {
     var targetIndex = this.crazy8PlayerIndex;
 
     if (callerIndex === targetIndex) {
-      // Player called it on themselves — safe
       this.showToast(this.players[callerIndex].name + ': CRAZY 8!');
     } else {
-      // Another player caught them — penalty
       if (this.players[targetIndex] && this.players[targetIndex].hand.length === 1) {
         this.showToast(this.players[callerIndex].name + ' caught ' + this.players[targetIndex].name + '! +2 cards');
         this.players[targetIndex].hand.push(this.drawFromDeck());
@@ -1207,7 +1224,65 @@ CrazyEightGame.prototype = {
       }
     }
     if (this.mode === 'online') this.saveToFirebase();
+    this.showCrazy8Results(targetIndex, callerIndex);
     this.crazy8PlayerIndex = -1;
+  },
+
+  showCrazy8Results: function(targetIndex, winnerIndex) {
+    var self = this;
+    var times = this.crazy8ClickTimes || {};
+    var startTime = this.crazy8StartTime || Date.now();
+
+    // Collect all click times
+    var entries = [];
+    for (var i = 0; i < this.players.length; i++) {
+      if (times[i] !== undefined) {
+        entries.push({ idx: i, ms: times[i] });
+      }
+    }
+    entries.sort(function(a, b) { return a.ms - b.ms; });
+
+    // Build rows
+    var rowsHtml = '';
+    var medals = ['🥇', '🥈', '🥉'];
+    var rank = 0;
+    entries.forEach(function(e) {
+      var p = self.players[e.idx];
+      if (!p) return;
+      var medal = medals[rank] || '🏅';
+      var isFastest = rank === 0;
+      var isSelf = e.idx === self.myPlayerIndex;
+      var isTarget = e.idx === targetIndex;
+      var label = isTarget ? ' (one card)' : (isSelf ? ' (you)' : '');
+      rowsHtml += '<div class="c8r-row' + (isFastest ? ' fastest' : '') + '">' +
+        '<span>' + medal + '</span>' +
+        '<span class="c8r-name">' + (p.avatar || '') + ' ' + p.name + label + '</span>' +
+        '<span class="c8r-time">' + (e.ms / 1000).toFixed(2) + 's</span>' +
+        '</div>';
+      rank++;
+    });
+
+    // Players who didn't click
+    for (var j = 0; j < this.players.length; j++) {
+      if (times[j] === undefined) {
+        var p2 = this.players[j];
+        if (!p2 || p2.left) continue;
+        var isSelf2 = j === self.myPlayerIndex;
+        var isTarget2 = j === targetIndex;
+        var label2 = isTarget2 ? ' (one card)' : (isSelf2 ? ' (you)' : '');
+        rowsHtml += '<div class="c8r-row" style="opacity:0.5">' +
+          '<span>😴</span>' +
+          '<span class="c8r-name">' + (p2.avatar || '') + ' ' + p2.name + label2 + '</span>' +
+          '<span class="c8r-time">—</span>' +
+          '</div>';
+      }
+    }
+
+    if (!rowsHtml) return;
+    document.getElementById('c8-results-rows').innerHTML = rowsHtml;
+    var el = document.getElementById('c8-results');
+    el.classList.add('show');
+    setTimeout(function() { el.classList.remove('show'); }, 3500);
   },
 
   executePlay: function(card, playerIndex) {
@@ -1303,6 +1378,8 @@ CrazyEightGame.prototype = {
   nextTurn: function() {
     this.animating = false;
     this.crazy8CalledBy = -1;
+    this.crazy8StartTime = 0;
+    this.crazy8ClickTimes = {};
 
     // Check if only 1 active player remains
     var active = this.getActivePlayers();
@@ -1527,6 +1604,8 @@ CrazyEightGame.prototype = {
       actionTimestamp: this.actionTimestamp,
       createdAt: this.createdAt || Date.now(),
       crazy8CalledBy: this.crazy8CalledBy !== undefined ? this.crazy8CalledBy : -1,
+      crazy8StartTime: this.crazy8StartTime || 0,
+      crazy8ClickTimes: this.crazy8ClickTimes || {},
     };
   },
 
@@ -1541,6 +1620,8 @@ CrazyEightGame.prototype = {
     this.gameOver = data.gameOver || false;
     this.actionTimestamp = data.actionTimestamp || 0;
     this.crazy8CalledBy = (data.crazy8CalledBy !== undefined) ? data.crazy8CalledBy : -1;
+    this.crazy8StartTime = data.crazy8StartTime || 0;
+    this.crazy8ClickTimes = data.crazy8ClickTimes || {};
     this.createdAt = data.createdAt;
     this.drewThisTurn = false;
     this.animating = false;
@@ -1623,15 +1704,17 @@ CrazyEightGame.prototype = {
         self.loadStateFromFirebase(data);
         self.renderAll();
 
-        // If crazy 8 was already called by someone, cancel local timer
+        // If crazy 8 was already called by someone, cancel local timer and show results
         if (self.crazy8CalledBy >= 0 && self.crazy8Timer) {
           clearTimeout(self.crazy8Timer);
           self.crazy8Timer = null;
           self.calledCrazy8 = true;
+          var prevTarget = self.crazy8PlayerIndex;
           self.crazy8PlayerIndex = -1;
           document.getElementById('one-card-alert').classList.remove('show');
           document.getElementById('oca-crazy8-btn').style.display = 'none';
           document.getElementById('crazy8-call-btn').style.display = 'none';
+          self.showCrazy8Results(prevTarget, self.crazy8CalledBy);
         }
 
         // Check if any opponent just got to 1 card — trigger crazy 8 call
