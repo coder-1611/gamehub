@@ -1170,7 +1170,6 @@ CrazyEightGame.prototype = {
     document.getElementById('one-card-name').textContent = this.players[playerIndex].avatar + ' ' + this.players[playerIndex].name;
     btn.style.display = 'block';
     alertEl.classList.add('show');
-    setTimeout(function() { alertEl.classList.remove('show'); btn.style.display = 'none'; }, 3000);
   },
 
   startCrazy8Call: function(playerIndex) {
@@ -1182,20 +1181,7 @@ CrazyEightGame.prototype = {
     document.getElementById('crazy8-call-btn').style.display = 'block';
     this.showOneCardAlert(playerIndex);
 
-    var self = this;
-    this.crazy8Timer = setTimeout(function() {
-      if (!self.calledCrazy8 && self.players[playerIndex] && self.players[playerIndex].hand.length === 1) {
-        self.showToast(self.players[playerIndex].name + ' forgot CRAZY 8! +2 cards');
-        self.players[playerIndex].hand.push(self.drawFromDeck());
-        self.players[playerIndex].hand.push(self.drawFromDeck());
-        if (playerIndex === self.myPlayerIndex) self.renderHand();
-        self.updateCardCounts();
-        if (self.mode === 'online') self.saveToFirebase();
-      }
-      document.getElementById('crazy8-call-btn').style.display = 'none';
-      self.showCrazy8Results(playerIndex, null);
-      self.crazy8PlayerIndex = -1;
-    }, 3000);
+    this.crazy8Timer = null;
   },
 
   callCrazy8: function() {
