@@ -682,7 +682,7 @@ var BOT_PHRASES = ['omfg {name} stop','bruh','nice one...','are you kidding me',
 
 // ===== GROQ AI CHAT =====
 var GROQ_API_KEY = (function(){var p=["Z3NrX3JiYkJzd0Ex","dWdoVHhiVjZlVGJm","V0dkeWIzRlljVjY5","RXJsN1BGaTk5QjVo","T3k2T05nZXc="];return atob(p.join(''));})();
-var GROQ_SYSTEM = 'ur a dumb 15yo playing crazy 8 online w friends. reply like teen txt ONLY, max 35 chars, lowercase mostly, abbreviations ok, swear only w acronyms (wtf lmao ffs omfg). never explain things or be helpful. just react to whats said. if its a question u dont care abt just say idk or shrug it off. ur focus is the game not convos.';
+var GROQ_SYSTEM = 'ur a dumb 15yo playing crazy 8 online. reply like teen txt ONLY, max 35 chars, lowercase, abbreviations ok, swear in acronyms (wtf lmao ffs omfg stfu). never explain anything. just react naturally. if u got hit by +2 or +4 be annoyed/agitated. if u got skipped be salty. if someone won be sore about it. if its chat just vibe. no punctuation needed. sound genuinely frustrated or hype depending on whats happening.';
 // Rate limiter: max 6 bot messages per 60 seconds, evenly spread across bots
 var groqRateLog = []; // timestamps of sent messages
 var botLastSent = {}; // botIndex -> last sent timestamp
@@ -1348,6 +1348,12 @@ CrazyEightGame.prototype = {
       this.renderDirection();
       if (this.playerCount === 2) this.skipNext = true;
       this.showToast('Reversed!');
+      // Random other bot reacts to the reversal
+      var revBots = [];
+      for (var ri = 0; ri < this.players.length; ri++) {
+        if (ri !== playerIndex && ri !== this.myPlayerIndex && !this.players[ri].left) revBots.push(ri);
+      }
+      if (revBots.length) this.gameEventBotChat(revBots[Math.floor(Math.random() * revBots.length)], 'someone just reversed direction in crazy 8, react surprised or hyped');
     }
     if (card.value === 'skip') {
       this.skipNext = true;
@@ -1425,19 +1431,22 @@ CrazyEightGame.prototype = {
       this.skipNext = false;
       var skipped = this.players[next];
       this.showToast(skipped.name + ' was skipped!');
+      this.gameEventBotChat(next, 'you just got skipped in crazy 8, react annoyed');
       next = this.getNextPlayer(next);
     }
 
     if (this.mustDraw > 0) {
+      var drawCount = this.mustDraw;
       var target = next;
       var player = this.players[target];
-      for (var i = 0; i < this.mustDraw; i++) {
+      for (var i = 0; i < drawCount; i++) {
         player.hand.push(this.drawFromDeck());
       }
-      this.showToast(player.name + ' draws ' + this.mustDraw + ' cards!');
+      this.showToast(player.name + ' draws ' + drawCount + ' cards!');
       this.updateCardCounts();
       if (target === this.myPlayerIndex) this.renderHand();
       this.mustDraw = 0;
+      this.gameEventBotChat(target, 'you just got hit with +' + drawCount + ' cards in crazy 8, react agitated/annoyed');
       next = this.getNextPlayer(target);
     }
 
@@ -1578,10 +1587,47 @@ CrazyEightGame.prototype = {
     });
   },
 
+  gameEventBotChat: function(reactorIndex, context) {
+    if (reactorIndex < 0 || reactorIndex === this.myPlayerIndex) return;
+    var player = this.players[reactorIndex];
+    if (!player || player.left) return;
+    var botPlayers = this.players.filter(function(p, i) { return i !== this.myPlayerIndex; }, this);
+    var self = this;
+    var delay = 400 + Math.random() * 800;
+    setTimeout(function() {
+      groqBotReply(reactorIndex, botPlayers.length, context, function(reply) {
+        if (!reply) return;
+        // Show bubble on slot
+        var slot = document.getElementById('player-slot-' + reactorIndex);
+        if (slot) {
+          var existing = slot.querySelector('.chat-bubble');
+          if (existing) existing.remove();
+          var bubble = document.createElement('div');
+          bubble.className = 'chat-bubble';
+          bubble.textContent = reply;
+          slot.appendChild(bubble);
+          setTimeout(function() { bubble.remove(); }, 2800);
+        }
+        // Show in chat panel
+        var chatMsg = { name: player.name, avatar: player.avatar, avatarColor: player.avatarColor, text: reply, ts: Date.now() };
+        self.chatMessages.push(chatMsg);
+        self.renderChatMessage(chatMsg);
+      });
+    }, delay);
+  },
+
   // ===== GAME END =====
   endGame: function(winnerIndex) {
     this.gameOver = true;
     var winner = this.players[winnerIndex];
+    // Bots react to the game ending
+    var self = this;
+    for (var gi = 0; gi < this.players.length; gi++) {
+      if (gi !== winnerIndex && gi !== this.myPlayerIndex && !this.players[gi].left) {
+        var ctx = winner.name + ' just won the game of crazy 8, react as a sore loser';
+        this.gameEventBotChat(gi, ctx);
+      }
+    }
     document.getElementById('winner-name').textContent = winner.avatar + ' ' + winner.name + ' wins!';
 
     var scoreboard = document.getElementById('scoreboard');
