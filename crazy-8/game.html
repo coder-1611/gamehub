@@ -679,6 +679,48 @@ var AVATARS = ['😎','😤','🤩','🤢','😈','🤠','👻','🥳','😺','�
 var AVATAR_COLORS = ['#2196F3','#E91E63','#FF9800','#4CAF50','#9C27B0','#00BCD4'];
 var BOT_NAMES = ['Lisa2744','Chris','SICKO MODE','viv','Moan King','BigDawg','xXSlayerXx','NoobMaster','Karen99'];
 var BOT_PHRASES = ['omfg {name} stop','bruh','nice one...','are you kidding me','lets gooo','no way','gg','im done','WHAT','lmaooo','this game is rigged','how??','ez clap','pain.','yooo'];
+
+// ===== GROQ AI CHAT =====
+var GROQ_API_KEY = 'YOUR_GROQ_API_KEY_HERE';
+var GROQ_SYSTEM = 'ur a dumb 15yo playing crazy 8 online w friends. reply like teen txt ONLY, max 35 chars, lowercase mostly, abbreviations ok, swear only w acronyms (wtf lmao ffs omfg). never explain things or be helpful. just react to whats said. if its a question u dont care abt just say idk or shrug it off. ur focus is the game not convos.';
+// Rate limiter: max 6 bot messages per 60 seconds, evenly spread across bots
+var groqRateLog = []; // timestamps of sent messages
+var botLastSent = {}; // botIndex -> last sent timestamp
+
+function canBotSendGroq(botIndex, totalBots) {
+  var now = Date.now();
+  // Prune log older than 60s
+  groqRateLog = groqRateLog.filter(function(t) { return now - t < 60000; });
+  if (groqRateLog.length >= 6) return false;
+  // Per-bot cooldown: spread 6 msgs across bots evenly = 10s global / totalBots per bot
+  var perBotCooldown = Math.max(10000, Math.round(60000 / 6 * totalBots));
+  var lastSent = botLastSent[botIndex] || 0;
+  return (now - lastSent) >= perBotCooldown;
+}
+
+function groqBotReply(botIndex, totalBots, triggerMsg, callback) {
+  if (!canBotSendGroq(botIndex, totalBots)) { callback(null); return; }
+  var now = Date.now();
+  groqRateLog.push(now);
+  botLastSent[botIndex] = now;
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
+    body: JSON.stringify({
+      model: 'llama3-8b-8192',
+      max_tokens: 20,
+      messages: [
+        { role: 'system', content: GROQ_SYSTEM },
+        { role: 'user', content: triggerMsg.substring(0, 120) }
+      ]
+    })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!text) { callback(null); return; }
+    text = text.trim().substring(0, 40);
+    callback(text);
+  }).catch(function() { callback(null); });
+}
 var SPECIAL_ICONS = { skip: '⊘', reverse: '⟳', draw2: '+2', wild: '★', wild4: '+4' };
 
 // ===== CARD =====
@@ -1512,16 +1554,28 @@ CrazyEightGame.prototype = {
     var existing = slot.querySelector('.chat-bubble');
     if (existing) existing.remove();
 
-    var phrase = BOT_PHRASES[Math.floor(Math.random() * BOT_PHRASES.length)];
+    var botPlayers = this.players.filter(function(_, i) { return i !== this.myPlayerIndex; }, this);
+    var self = this;
     var others = this.players.filter(function(_, i) { return i !== playerIndex; });
     var target = others[Math.floor(Math.random() * others.length)];
-    phrase = phrase.replace('{name}', target.name);
+    var context = 'just played a card in crazy 8. maybe trash talk ' + (target ? target.name : 'someone');
 
-    var bubble = document.createElement('div');
-    bubble.className = 'chat-bubble';
-    bubble.textContent = phrase;
-    slot.appendChild(bubble);
-    setTimeout(function() { bubble.remove(); }, 2500);
+    groqBotReply(playerIndex, botPlayers.length, context, function(reply) {
+      if (!reply) {
+        var phrase = BOT_PHRASES[Math.floor(Math.random() * BOT_PHRASES.length)];
+        reply = phrase.replace('{name}', target ? target.name : 'bro');
+      }
+      var bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+      bubble.textContent = reply;
+      slot.appendChild(bubble);
+      setTimeout(function() { bubble.remove(); }, 2500);
+
+      // Also show in chat panel
+      var chatMsg = { name: player.name, avatar: player.avatar, avatarColor: player.avatarColor, text: reply, ts: Date.now() };
+      self.chatMessages.push(chatMsg);
+      self.renderChatMessage(chatMsg);
+    });
   },
 
   // ===== GAME END =====
@@ -1744,22 +1798,28 @@ CrazyEightGame.prototype = {
       this.saveChatToFirebase();
     }
 
-    // In AI mode, bots might reply
+    // In AI mode, bots reply via Groq (with fallback)
     if (this.mode === 'ai') {
       var self = this;
-      var delay = 800 + Math.random() * 1500;
-      setTimeout(function() {
-        var bots = self.players.filter(function(p, i) { return i !== self.myPlayerIndex; });
-        if (bots.length === 0) return;
-        if (Math.random() < 0.6) {
-          var bot = bots[Math.floor(Math.random() * bots.length)];
-          var replies = ['lol','haha','ok','bruh','sure','nice','what','😂','👀','no way','gg','💀','😭','stopppp','fr fr','nah'];
-          var reply = replies[Math.floor(Math.random() * replies.length)];
-          var botMsg = { name: bot.name, avatar: bot.avatar, avatarColor: bot.avatarColor, text: reply, ts: Date.now() };
-          self.chatMessages.push(botMsg);
-          self.renderChatMessage(botMsg);
-        }
-      }, delay);
+      var botPlayers = this.players.map(function(p, i) { return { p: p, i: i }; }).filter(function(x) { return x.i !== self.myPlayerIndex; });
+      if (botPlayers.length === 0) return;
+      // Pick a random bot to potentially reply
+      if (Math.random() < 0.7) {
+        var chosen = botPlayers[Math.floor(Math.random() * botPlayers.length)];
+        var delay = 700 + Math.random() * 1800;
+        setTimeout(function() {
+          groqBotReply(chosen.i, botPlayers.length, msg, function(reply) {
+            if (!reply) {
+              // Fallback to static phrase
+              var fallbacks = ['lol','bruh','ok','😂','no way','gg','💀','stopppp','fr','nah','lmao','😭'];
+              reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            }
+            var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: reply, ts: Date.now() };
+            self.chatMessages.push(botMsg);
+            self.renderChatMessage(botMsg);
+          });
+        }, delay);
+      }
     }
   },
 
