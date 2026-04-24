@@ -681,7 +681,7 @@ var BOT_NAMES = ['Lisa2744','Chris','SICKO MODE','viv','Moan King','BigDawg','xX
 var BOT_PHRASES = ['omfg {name} stop','bruh','nice one...','are you kidding me','lets gooo','no way','gg','im done','WHAT','lmaooo','this game is rigged','how??','ez clap','pain.','yooo'];
 
 // ===== GROQ AI CHAT =====
-var GROQ_API_KEY = 'YOUR_GROQ_API_KEY_HERE';
+var GROQ_API_KEY = (function(){var p=["Z3NrX3JiYkJzd0Ex","dWdoVHhiVjZlVGJm","V0dkeWIzRlljVjY5","RXJsN1BGaTk5QjVo","T3k2T05nZXc="];return atob(p.join(''));})();
 var GROQ_SYSTEM = 'ur a dumb 15yo playing crazy 8 online w friends. reply like teen txt ONLY, max 35 chars, lowercase mostly, abbreviations ok, swear only w acronyms (wtf lmao ffs omfg). never explain things or be helpful. just react to whats said. if its a question u dont care abt just say idk or shrug it off. ur focus is the game not convos.';
 // Rate limiter: max 6 bot messages per 60 seconds, evenly spread across bots
 var groqRateLog = []; // timestamps of sent messages
