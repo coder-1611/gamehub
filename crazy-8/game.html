@@ -682,33 +682,27 @@ var BOT_PHRASES = ['omfg {name} stop','bruh','nice one...','are you kidding me',
 
 // ===== GROQ AI CHAT =====
 var GROQ_API_KEY = (function(){var p=["Z3NrX3JiYkJzd0Ex","dWdoVHhiVjZlVGJm","V0dkeWIzRlljVjY5","RXJsN1BGaTk5QjVo","T3k2T05nZXc="];return atob(p.join(''));})();
-var GROQ_SYSTEM = 'ur a dumb 15yo playing crazy 8 online. reply like teen txt ONLY, max 35 chars, lowercase, abbreviations ok, swear in acronyms (wtf lmao ffs omfg stfu). never explain anything. just react naturally. if u got hit by +2 or +4 be annoyed/agitated. if u got skipped be salty. if someone won be sore about it. if its chat just vibe. no punctuation needed. sound genuinely frustrated or hype depending on whats happening.';
-// Rate limiter: max 6 bot messages per 60 seconds, evenly spread across bots
-var groqRateLog = []; // timestamps of sent messages
+var GROQ_SYSTEM = 'ur a dumb 15yo playing crazy 8 online. talk like a real teen, 1-2 short sentences max, lowercase, no caps, abbreviations fine, swear in acronyms (wtf lmao ffs omfg stfu bruh ngl fr). never explain rules. just react like a real person would. if u got hit by +2 or +4 be visibly annoyed or whine about it. if u got skipped act salty or sulk. if someone won be a sore loser, complain or be dramatic. if its just chat be casual and kinda dumb, talk about random stuff. sound genuine not robotic. mix in some personality. no need for full sentences.';
+// Per-bot cooldown: 2-5 seconds between messages
 var botLastSent = {}; // botIndex -> last sent timestamp
 
-function canBotSendGroq(botIndex, totalBots) {
+function canBotSendGroq(botIndex) {
   var now = Date.now();
-  // Prune log older than 60s
-  groqRateLog = groqRateLog.filter(function(t) { return now - t < 60000; });
-  if (groqRateLog.length >= 6) return false;
-  // Per-bot cooldown: spread 6 msgs across bots evenly = 10s global / totalBots per bot
-  var perBotCooldown = Math.max(10000, Math.round(60000 / 6 * totalBots));
+  var cooldown = 2000 + Math.random() * 3000; // 2-5s randomized
   var lastSent = botLastSent[botIndex] || 0;
-  return (now - lastSent) >= perBotCooldown;
+  return (now - lastSent) >= cooldown;
 }
 
 function groqBotReply(botIndex, totalBots, triggerMsg, callback) {
-  if (!canBotSendGroq(botIndex, totalBots)) { callback(null); return; }
+  if (!canBotSendGroq(botIndex)) { callback(null); return; }
   var now = Date.now();
-  groqRateLog.push(now);
   botLastSent[botIndex] = now;
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
     body: JSON.stringify({
       model: 'llama3-8b-8192',
-      max_tokens: 20,
+      max_tokens: 40,
       messages: [
         { role: 'system', content: GROQ_SYSTEM },
         { role: 'user', content: triggerMsg.substring(0, 120) }
