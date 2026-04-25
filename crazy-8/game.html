@@ -2489,37 +2489,26 @@
 
     // ===== GROQ AI CHAT =====
     var GROQ_API_KEY = (function () { var p = ["Z3NrX3JiYkJzd0Ex", "dWdoVHhiVjZlVGJm", "V0dkeWIzRlljVjY5", "RXJsN1BGaTk5QjVo", "T3k2T05nZXc="]; return atob(p.join('')); })();
-    var GROQ_SYSTEM = 'you are a dumb 15 year old playing crazy 8. the user message tells you what just happened - react to it. write 1-2 sentences max, all lowercase, typos ok, teen slang, acronyms like wtf lmao bruh ngl ffs omfg. sound genuinely annoyed if hit with draw cards. salty if skipped. dramatic sore loser if you lose. hype or smug if you win or catch someone. keep it natural and dumb. if someone asks math answer wrong confidently. never explain game rules. just vibe.';
-    // Per-bot cooldown: 2-5 seconds between messages
-    var botLastSent = {}; // botIndex -> last sent timestamp
-
-    function canBotSendGroq(botIndex) {
-      var now = Date.now();
-      var cooldown = 2000 + Math.random() * 3000; // 2-5s randomized
-      var lastSent = botLastSent[botIndex] || 0;
-      return (now - lastSent) >= cooldown;
-    }
+    var botLastSent = {};
 
     function groqBotReply(botIndex, totalBots, triggerMsg, callback) {
-      if (!canBotSendGroq(botIndex)) { callback(null); return; }
       var now = Date.now();
+      if ((now - (botLastSent[botIndex] || 0)) < 2000) { callback(null); return; }
       botLastSent[botIndex] = now;
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
         body: JSON.stringify({
           model: 'llama3-8b-8192',
-          max_tokens: 100,
+          max_tokens: 60,
           messages: [
-            { role: 'system', content: GROQ_SYSTEM },
-            { role: 'user', content: triggerMsg.substring(0, 120) }
+            { role: 'user', content: triggerMsg }
           ]
         })
       }).then(function (r) { return r.json(); }).then(function (data) {
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
         if (!text) { callback(null); return; }
-        text = text.trim().substring(0, 40);
-        callback(text);
+        callback(text.trim());
       }).catch(function () { callback(null); });
     }
     var SPECIAL_ICONS = { skip: '⊘', reverse: '⟳', draw2: '+2', wild: '★', wild4: '+4' };
