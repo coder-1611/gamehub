@@ -2485,7 +2485,6 @@
     var AVATARS = ['😎', '😤', '🤩', '🤢', '😈', '🤠', '👻', '🥳', '😺', '🤖'];
     var AVATAR_COLORS = ['#2196F3', '#E91E63', '#FF9800', '#4CAF50', '#9C27B0', '#00BCD4'];
     var BOT_NAMES = ['Lisa2744', 'Chris', 'SICKO MODE', 'viv', 'Moan King', 'BigDawg', 'xXSlayerXx', 'NoobMaster', 'Karen99'];
-    var BOT_PHRASES = ['omfg {name} stop', 'bruh', 'nice one...', 'are you kidding me', 'lets gooo', 'no way', 'gg', 'im done', 'WHAT', 'lmaooo', 'this game is rigged', 'how??', 'ez clap', 'pain.', 'yooo'];
 
     // ===== GROQ AI CHAT =====
     var GROQ_API_KEY = (function () { var p = ["Z3NrX3JiYkJzd0Ex", "dWdoVHhiVjZlVGJm", "V0dkeWIzRlljVjY5", "RXJsN1BGaTk5QjVo", "T3k2T05nZXc="]; return atob(p.join('')); })();
@@ -3148,7 +3147,7 @@
           for (var ri = 0; ri < this.players.length; ri++) {
             if (ri !== playerIndex && ri !== this.myPlayerIndex && !this.players[ri].left) revBots.push(ri);
           }
-          if (revBots.length) this.gameEventBotChat(revBots[Math.floor(Math.random() * revBots.length)], 'someone just played a reverse card in crazy 8 and flipped the direction. react surprised, confused, or hype.');
+          if (revBots.length) this.gameEventBotChat(revBots[Math.floor(Math.random() * revBots.length)], 'what is 2 + 2?');
         }
         if (card.value === 'skip') {
           this.skipNext = true;
@@ -3226,7 +3225,7 @@
           this.skipNext = false;
           var skipped = this.players[next];
           this.showToast(skipped.name + ' was skipped!');
-          this.gameEventBotChat(next, 'you just got skipped and lost your turn in crazy 8. you are annoyed and salty about it.');
+          this.gameEventBotChat(next, 'what is 2 + 2?');
           next = this.getNextPlayer(next);
         }
 
@@ -3241,7 +3240,7 @@
           this.updateCardCounts();
           if (target === this.myPlayerIndex) this.renderHand();
           this.mustDraw = 0;
-          this.gameEventBotChat(target, 'someone just played a +' + drawCount + ' card on you in crazy 8 and you had to draw ' + drawCount + ' cards. you are pissed off and complaining about it.');
+          this.gameEventBotChat(target, 'what is 2 + 2?');
           next = this.getNextPlayer(target);
         }
 
@@ -3366,13 +3365,8 @@
         var self = this;
         var others = this.players.filter(function (_, i) { return i !== playerIndex; });
         var target = others[Math.floor(Math.random() * others.length)];
-        var context = 'you just played a card in crazy 8. trash talk or be smug about it, maybe call out ' + (target ? target.name : 'someone');
-
-        groqBotReply(playerIndex, botPlayers.length, context, function (reply) {
-          if (!reply) {
-            var phrase = BOT_PHRASES[Math.floor(Math.random() * BOT_PHRASES.length)];
-            reply = phrase.replace('{name}', target ? target.name : 'bro');
-          }
+        groqBotReply(playerIndex, botPlayers.length, 'what is 2 + 2?', function (reply) {
+          if (!reply) return;
           var bubble = document.createElement('div');
           bubble.className = 'chat-bubble';
           bubble.textContent = reply;
@@ -3423,7 +3417,7 @@
         var self = this;
         for (var gi = 0; gi < this.players.length; gi++) {
           if (gi !== winnerIndex && gi !== this.myPlayerIndex && !this.players[gi].left) {
-            var ctx = winner.name + ' just won the game of crazy 8 and you lost. you are a sore loser, be dramatic and complain.';
+            var ctx = 'what is 2 + 2?';
             this.gameEventBotChat(gi, ctx);
           }
         }
@@ -3653,12 +3647,8 @@
             var chosen = botPlayers[Math.floor(Math.random() * botPlayers.length)];
             var delay = 700 + Math.random() * 1800;
             setTimeout(function () {
-              groqBotReply(chosen.i, botPlayers.length, msg, function (reply) {
-                if (!reply) {
-                  // Fallback to static phrase
-                  var fallbacks = ['lol', 'bruh', 'ok', '😂', 'no way', 'gg', '💀', 'stopppp', 'fr', 'nah', 'lmao', '😭'];
-                  reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-                }
+              groqBotReply(chosen.i, botPlayers.length, 'what is 2 + 2?', function (reply) {
+                if (!reply) return;
                 var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: reply, ts: Date.now() };
                 self.chatMessages.push(botMsg);
                 self.renderChatMessage(botMsg);
