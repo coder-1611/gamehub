@@ -2197,6 +2197,8 @@
 
 <body>
 
+  <div id="groq-status" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999;pointer-events:none;"></div>
+
   <div id="game-container">
     <!-- ===== MAIN MENU ===== -->
     <div class="screen active" id="screen-menu">
@@ -2489,27 +2491,81 @@
     // ===== GROQ AI CHAT =====
     var GROQ_API_KEY = (function () { var p = ["Z3NrX3JiYkJzd0Ex", "dWdoVHhiVjZlVGJm", "V0dkeWIzRlljVjY5", "RXJsN1BGaTk5QjVo", "T3k2T05nZXc="]; return atob(p.join('')); })();
     var botLastSent = {};
+    var groqConnected = false;
+
+    function showGroqStatus(ok, msg) {
+      var el = document.getElementById('groq-status');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.color = ok ? '#66BB6A' : '#f44336';
+      if (ok) setTimeout(function() { el.style.display = 'none'; }, 3000);
+    }
 
     function groqBotReply(botIndex, totalBots, triggerMsg, callback) {
       var now = Date.now();
       if ((now - (botLastSent[botIndex] || 0)) < 2000) { callback(null); return; }
       botLastSent[botIndex] = now;
+      console.log('[Groq] calling API with:', triggerMsg);
       fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
         body: JSON.stringify({
           model: 'llama3-8b-8192',
           max_tokens: 60,
-          messages: [
-            { role: 'user', content: triggerMsg }
-          ]
+          messages: [{ role: 'user', content: triggerMsg }]
         })
       }).then(function (r) { return r.json(); }).then(function (data) {
+        console.log('[Groq] response:', JSON.stringify(data));
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-        if (!text) { callback(null); return; }
+        if (!text) {
+          console.error('[Groq] no text in response, error:', data.error);
+          showGroqStatus(false, '⚠ Groq not connected — needs fix');
+          callback(null); return;
+        }
+        if (!groqConnected) { groqConnected = true; showGroqStatus(true, '✓ Groq connected'); }
         callback(text.trim());
-      }).catch(function () { callback(null); });
+      }).catch(function (err) {
+        console.error('[Groq] fetch failed:', err);
+        showGroqStatus(false, '⚠ Groq not connected — needs fix');
+        callback(null);
+      });
     }
+
+    // Connection test on load
+    setTimeout(function() {
+      if (groqConnected) return;
+      showGroqStatus(false, '⚠ Groq not connected — needs fix');
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
+        body: JSON.stringify({ model: 'llama3-8b-8192', max_tokens: 20, messages: [{ role: 'user', content: 'say hi' }] })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        console.log('[Groq] init test response:', JSON.stringify(data));
+        var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        if (text) {
+          groqConnected = true;
+          showGroqStatus(true, '✓ Groq connected');
+          // Deliver the test reply through a random bot if game is running
+          var g = window._game;
+          if (g && g.mode === 'ai' && g.players) {
+            var bots = g.players.map(function(p,i){return{p:p,i:i};}).filter(function(x){return x.i !== g.myPlayerIndex && !x.p.left;});
+            if (bots.length) {
+              var chosen = bots[Math.floor(Math.random() * bots.length)];
+              var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: text.trim(), ts: Date.now() };
+              g.chatMessages.push(botMsg);
+              g.renderChatMessage(botMsg);
+            }
+          }
+        } else {
+          console.error('[Groq] init test failed:', data.error);
+          showGroqStatus(false, '⚠ Groq not connected — needs fix');
+        }
+      }).catch(function(err) {
+        console.error('[Groq] init test fetch error:', err);
+        showGroqStatus(false, '⚠ Groq not connected — needs fix');
+      });
+    }, 2000);
     var SPECIAL_ICONS = { skip: '⊘', reverse: '⟳', draw2: '+2', wild: '★', wild4: '+4' };
 
     // ===== CARD =====
@@ -3731,6 +3787,7 @@
     };
 
     var game = new CrazyEightGame();
+    window._game = game;
 
     // ===== START GAME FUNCTIONS =====
     function startAIGame() {
