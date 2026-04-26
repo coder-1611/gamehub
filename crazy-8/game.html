@@ -3169,7 +3169,7 @@
           for (var ri = 0; ri < this.players.length; ri++) {
             if (ri !== playerIndex && ri !== this.myPlayerIndex && !this.players[ri].left) revBots.push(ri);
           }
-          if (revBots.length) this.gameEventBotChat(revBots[Math.floor(Math.random() * revBots.length)], 'someone just played a reverse card and flipped the direction of play');
+          if (revBots.length) this.gameEventBotChat(revBots[Math.floor(Math.random() * revBots.length)], this.players[playerIndex].name + ' just played a reverse card and flipped the direction of play');
         }
         if (card.value === 'skip') {
           this.skipNext = true;
@@ -3247,7 +3247,9 @@
           this.skipNext = false;
           var skipped = this.players[next];
           this.showToast(skipped.name + ' was skipped!');
-          this.gameEventBotChat(next, 'you just got skipped and lost your turn');
+          if (this.mustDraw === 0) {
+            this.gameEventBotChat(next, this.players[this.currentPlayerIndex].name + ' just played a skip card on you and you lost your turn');
+          }
           next = this.getNextPlayer(next);
         }
 
@@ -3262,7 +3264,7 @@
           this.updateCardCounts();
           if (target === this.myPlayerIndex) this.renderHand();
           this.mustDraw = 0;
-          this.gameEventBotChat(target, 'you just got hit with a +' + drawCount + ' card and had to draw ' + drawCount + ' cards, you are annoyed');
+          this.gameEventBotChat(target, this.players[this.currentPlayerIndex].name + ' just played a +' + drawCount + ' on you and you had to draw ' + drawCount + ' cards');
           next = this.getNextPlayer(target);
         }
 
@@ -3387,7 +3389,7 @@
         var self = this;
         var others = this.players.filter(function (_, i) { return i !== playerIndex; });
         var target = others[Math.floor(Math.random() * others.length)];
-        groqBotReply(playerIndex, botPlayers.length, 'you just played a card, say something smug or trash talk', function (reply) {
+        groqBotReply(playerIndex, botPlayers.length, 'you are ' + player.name + ' and you just played a card against ' + (target ? target.name : 'someone') + ', say something smug or trash talk', function (reply) {
           if (!reply) return;
           var bubble = document.createElement('div');
           bubble.className = 'chat-bubble';
