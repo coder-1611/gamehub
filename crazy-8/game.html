@@ -3149,6 +3149,9 @@
 
         if (card.isWild) {
           if (playerIndex === this.myPlayerIndex) {
+            if (this.players[playerIndex].hand.length === 1) {
+              this.startCrazy8Call(playerIndex);
+            }
             this.pendingColorPick = true;
             this.pendingCard = card;
             document.getElementById('color-picker-overlay').classList.add('show');
