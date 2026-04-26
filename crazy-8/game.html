@@ -1099,7 +1099,11 @@
       border-radius: 14px;
       font-size: 13px;
       font-weight: 700;
-      white-space: nowrap;
+      white-space: normal;
+      word-break: break-word;
+      max-width: 180px;
+      text-align: center;
+      line-height: 1.4;
       z-index: 15;
       animation: bubble-in .3s ease;
       pointer-events: none;
@@ -2512,7 +2516,7 @@
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
-          max_tokens: 100,
+          max_tokens: 60,
           messages: [{ role: 'system', content: 'you are a dumb 15 year old playing a card game called Crazy 8 with friends online. respond naturally in teen slang, lowercase, short. react to whatever just happened in the game.' }, { role: 'user', content: triggerMsg }]
         })
       }).then(function (r) { return r.json(); }).then(function (data) {
@@ -3379,6 +3383,7 @@
       },
 
       botChat: function (playerIndex) {
+        if (!this.userHasChatted) return;
         var player = this.players[playerIndex];
         var slot = document.getElementById('player-slot-' + playerIndex);
         if (!slot) return;
@@ -3405,6 +3410,7 @@
       },
 
       gameEventBotChat: function (reactorIndex, context) {
+        if (!this.userHasChatted) return;
         if (reactorIndex < 0 || reactorIndex === this.myPlayerIndex) return;
         var player = this.players[reactorIndex];
         if (!player || player.left) return;
@@ -3638,12 +3644,14 @@
       // ===== CHAT =====
       chatMessages: [],
       lastChatCount: 0,
+      userHasChatted: false,
 
       sendChat: function (text) {
         var input = document.getElementById('chat-input');
         var msg = text || (input ? input.value.trim() : '');
         if (!msg) return;
         if (input) input.value = '';
+        this.userHasChatted = true;
 
         var me = this.players[this.myPlayerIndex];
         var chatMsg = {
@@ -3671,7 +3679,7 @@
           fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
-            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 100, messages: [{ role: 'system', content: 'you are a dumb 15 year old playing a card game called Crazy 8 with friends online. respond naturally in teen slang, lowercase, short. react to whatever just happened in the game.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
+            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: 'you are a dumb 15 year old playing a card game called Crazy 8 with friends online. respond naturally in teen slang, lowercase, short. react to whatever just happened in the game.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
           }).then(function(r) {
             showGroqStatus(false, '⏳ got HTTP ' + r.status + ', parsing...');
             return r.json();
