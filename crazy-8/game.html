@@ -3118,11 +3118,14 @@
         var winnerTime = times[winnerIndex];
         if (winnerTime === undefined) return;
         var p = this.players[winnerIndex];
+        var t = this.players[targetIndex];
         if (!p) return;
         var isSelf = winnerIndex === this.myPlayerIndex;
         var isTarget = winnerIndex === targetIndex;
         var label = isTarget ? ' called it on themselves' : (isSelf ? ' (you) caught them!' : ' caught them!');
-        var rowsHtml = '<div class="c8r-row fastest">' +
+        var targetLabel = t ? ('🃏 one card: ' + (t.avatar || '') + ' ' + t.name) : '';
+        var rowsHtml = (targetLabel ? '<div style="font-size:12px;opacity:0.6;margin-bottom:6px;">' + targetLabel + '</div>' : '') +
+          '<div class="c8r-row fastest">' +
           '<span>⚡</span>' +
           '<span class="c8r-name">' + (p.avatar || '') + ' ' + p.name + label + '</span>' +
           '<span class="c8r-time">' + (winnerTime / 1000).toFixed(2) + 's</span>' +
