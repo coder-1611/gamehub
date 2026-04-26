@@ -3322,7 +3322,7 @@
           var chosen = playable[0];
           player.hand.splice(chosen.idx, 1);
 
-          if (Math.random() < 0.2) this.botChat(this.currentPlayerIndex);
+          if (Math.random() < 0.33) this.botChat(this.currentPlayerIndex);
 
           this.executePlay(chosen.card, this.currentPlayerIndex);
 
