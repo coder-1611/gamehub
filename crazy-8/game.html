@@ -2532,40 +2532,6 @@
       });
     }
 
-    // Connection test on load
-    setTimeout(function() {
-      if (groqConnected) return;
-      showGroqStatus(false, '⚠ Groq not connected — needs fix');
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
-        body: JSON.stringify({ model: 'llama3-8b-8192', max_tokens: 20, messages: [{ role: 'user', content: 'say hi' }] })
-      }).then(function(r) { return r.json(); }).then(function(data) {
-        console.log('[Groq] init test response:', JSON.stringify(data));
-        var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-        if (text) {
-          groqConnected = true;
-          showGroqStatus(true, '✓ Groq connected');
-          // Deliver the test reply through a random bot if game is running
-          var g = window._game;
-          if (g && g.mode === 'ai' && g.players) {
-            var bots = g.players.map(function(p,i){return{p:p,i:i};}).filter(function(x){return x.i !== g.myPlayerIndex && !x.p.left;});
-            if (bots.length) {
-              var chosen = bots[Math.floor(Math.random() * bots.length)];
-              var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: text.trim(), ts: Date.now() };
-              g.chatMessages.push(botMsg);
-              g.renderChatMessage(botMsg);
-            }
-          }
-        } else {
-          console.error('[Groq] init test failed:', data.error);
-          showGroqStatus(false, '⚠ Groq not connected — needs fix');
-        }
-      }).catch(function(err) {
-        console.error('[Groq] init test fetch error:', err);
-        showGroqStatus(false, '⚠ Groq not connected — needs fix');
-      });
-    }, 2000);
     var SPECIAL_ICONS = { skip: '⊘', reverse: '⟳', draw2: '+2', wild: '★', wild4: '+4' };
 
     // ===== CARD =====
@@ -3693,24 +3659,27 @@
           this.saveChatToFirebase();
         }
 
-        // In AI mode, bots reply via Groq (with fallback)
+        // In AI mode, test Groq and have a bot reply
         if (this.mode === 'ai') {
           var self = this;
           var botPlayers = this.players.map(function (p, i) { return { p: p, i: i }; }).filter(function (x) { return x.i !== self.myPlayerIndex; });
           if (botPlayers.length === 0) return;
-          // Pick a random bot to potentially reply
-          if (Math.random() < 0.7) {
-            var chosen = botPlayers[Math.floor(Math.random() * botPlayers.length)];
-            var delay = 700 + Math.random() * 1800;
-            setTimeout(function () {
-              groqBotReply(chosen.i, botPlayers.length, 'what is 2 + 2?', function (reply) {
-                if (!reply) return;
-                var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: reply, ts: Date.now() };
-                self.chatMessages.push(botMsg);
-                self.renderChatMessage(botMsg);
-              });
-            }, delay);
-          }
+          var chosen = botPlayers[Math.floor(Math.random() * botPlayers.length)];
+          showGroqStatus(false, '⚠ Groq not connected — needs fix');
+          fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
+            body: JSON.stringify({ model: 'llama3-8b-8192', max_tokens: 60, messages: [{ role: 'user', content: 'what is 2 + 2?' }] })
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            console.log('[Groq] sendChat test:', JSON.stringify(data));
+            var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+            if (!text) { console.error('[Groq] error:', data.error); return; }
+            groqConnected = true;
+            showGroqStatus(true, '✓ Groq connected');
+            var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: text.trim(), ts: Date.now() };
+            self.chatMessages.push(botMsg);
+            self.renderChatMessage(botMsg);
+          }).catch(function(err) { console.error('[Groq] sendChat fetch error:', err); });
         }
       },
 
