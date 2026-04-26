@@ -2517,7 +2517,7 @@
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
           max_tokens: 60,
-          messages: [{ role: 'system', content: 'you are a dumb 15 year old playing a card game called Crazy 8 with friends online. respond naturally in teen slang, lowercase, short. react to whatever just happened in the game.' }, { role: 'user', content: triggerMsg }]
+          messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase, short. no holding back.' }, { role: 'user', content: triggerMsg }]
         })
       }).then(function (r) { return r.json(); }).then(function (data) {
         console.log('[Groq] response:', JSON.stringify(data));
@@ -3682,7 +3682,7 @@
           fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
-            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: 'you are a dumb 15 year old playing a card game called Crazy 8 with friends online. respond naturally in teen slang, lowercase, short. react to whatever just happened in the game.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
+            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase, short. no holding back.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
           }).then(function(r) {
             showGroqStatus(false, '⏳ got HTTP ' + r.status + ', parsing...');
             return r.json();
