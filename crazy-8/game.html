@@ -2517,7 +2517,7 @@
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
           max_tokens: 60,
-          messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase, short. no holding back.' }, { role: 'user', content: triggerMsg }]
+          messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. always finish your sentence completely, never cut off mid-thought. no holding back.' }, { role: 'user', content: triggerMsg }]
         })
       }).then(function (r) { return r.json(); }).then(function (data) {
         console.log('[Groq] response:', JSON.stringify(data));
@@ -3518,6 +3518,7 @@
           gameOver: this.gameOver,
           actionTimestamp: this.actionTimestamp,
           createdAt: this.createdAt || Date.now(),
+          crazy8PlayerIndex: this.crazy8PlayerIndex !== undefined ? this.crazy8PlayerIndex : -1,
           crazy8CalledBy: this.crazy8CalledBy !== undefined ? this.crazy8CalledBy : -1,
           crazy8StartTime: this.crazy8StartTime || 0,
           crazy8ClickTimes: this.crazy8ClickTimes || {},
@@ -3534,6 +3535,7 @@
         this.skipNext = data.skipNext || false;
         this.gameOver = data.gameOver || false;
         this.actionTimestamp = data.actionTimestamp || 0;
+        this.crazy8PlayerIndex = (data.crazy8PlayerIndex !== undefined) ? data.crazy8PlayerIndex : -1;
         this.crazy8CalledBy = (data.crazy8CalledBy !== undefined) ? data.crazy8CalledBy : -1;
         this.crazy8StartTime = data.crazy8StartTime || 0;
         this.crazy8ClickTimes = data.crazy8ClickTimes || {};
@@ -3685,7 +3687,7 @@
           fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
-            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase, short. no holding back.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
+            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. always finish your sentence completely, never cut off mid-thought. no holding back.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
           }).then(function(r) {
             showGroqStatus(false, '⏳ got HTTP ' + r.status + ', parsing...');
             return r.json();
