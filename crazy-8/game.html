@@ -3659,27 +3659,25 @@
           this.saveChatToFirebase();
         }
 
-        // In AI mode, test Groq and have a bot reply
+        // In AI mode, send message to Groq and display response through a random bot
         if (this.mode === 'ai') {
           var self = this;
           var botPlayers = this.players.map(function (p, i) { return { p: p, i: i }; }).filter(function (x) { return x.i !== self.myPlayerIndex; });
           if (botPlayers.length === 0) return;
           var chosen = botPlayers[Math.floor(Math.random() * botPlayers.length)];
-          showGroqStatus(false, '⚠ Groq not connected — needs fix');
           fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
-            body: JSON.stringify({ model: 'llama3-8b-8192', max_tokens: 60, messages: [{ role: 'user', content: 'what is 2 + 2?' }] })
+            body: JSON.stringify({ model: 'llama3-8b-8192', max_tokens: 60, messages: [{ role: 'user', content: msg }] })
           }).then(function(r) { return r.json(); }).then(function(data) {
-            console.log('[Groq] sendChat test:', JSON.stringify(data));
+            console.log('[Groq] response:', JSON.stringify(data));
             var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-            if (!text) { console.error('[Groq] error:', data.error); return; }
-            groqConnected = true;
+            if (!text) { showGroqStatus(false, '⚠ Groq not connected — needs fix'); console.error('[Groq] error:', data.error); return; }
             showGroqStatus(true, '✓ Groq connected');
             var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: text.trim(), ts: Date.now() };
             self.chatMessages.push(botMsg);
             self.renderChatMessage(botMsg);
-          }).catch(function(err) { console.error('[Groq] sendChat fetch error:', err); });
+          }).catch(function(err) { showGroqStatus(false, '⚠ Groq not connected — needs fix'); console.error('[Groq] fetch error:', err); });
         }
       },
 
