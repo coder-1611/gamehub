@@ -2426,6 +2426,15 @@
     // ===== FIREBASE =====
     var FIREBASE_URL = 'https://gamehub-cce9d-default-rtdb.firebaseio.com';
 
+    var SWEAR_WORDS = ['fuck','shit','bitch','cunt','nigga','nigger','cock','pussy','bastard','黑鬼','雞巴'];
+    function containsSwear(text) {
+      var lower = text.toLowerCase();
+      for (var i = 0; i < SWEAR_WORDS.length; i++) {
+        if (lower.indexOf(SWEAR_WORDS[i]) !== -1) return true;
+      }
+      return false;
+    }
+
     function firebaseSave(code, data) {
       // Firebase rules require board + turn fields and /games/ path
       if (!data.board) data.board = '_';
@@ -3263,6 +3272,12 @@
           next = this.getNextPlayer(next);
         }
 
+        if (this.swearSkipPlayers && this.swearSkipPlayers[next]) {
+          delete this.swearSkipPlayers[next];
+          this.showToast('🤬 ' + this.players[next].name + '\'s turn skipped for swearing!');
+          next = this.getNextPlayer(next);
+        }
+
         if (this.mustDraw > 0) {
           var drawCount = this.mustDraw;
           var target = next;
@@ -3524,6 +3539,7 @@
           crazy8CalledBy: this.crazy8CalledBy !== undefined ? this.crazy8CalledBy : -1,
           crazy8StartTime: this.crazy8StartTime || 0,
           crazy8ClickTimes: this.crazy8ClickTimes || {},
+          swearSkipPlayers: this.swearSkipPlayers || {},
         };
       },
 
@@ -3541,6 +3557,7 @@
         this.crazy8CalledBy = (data.crazy8CalledBy !== undefined) ? data.crazy8CalledBy : -1;
         this.crazy8StartTime = data.crazy8StartTime || 0;
         this.crazy8ClickTimes = data.crazy8ClickTimes || {};
+        this.swearSkipPlayers = data.swearSkipPlayers || {};
         this.createdAt = data.createdAt;
         this.drewThisTurn = false;
         this.animating = false;
@@ -3655,6 +3672,7 @@
       chatMessages: [],
       lastChatCount: 0,
       userHasChatted: false,
+      swearSkipPlayers: {},
 
       sendChat: function (text) {
         var input = document.getElementById('chat-input');
@@ -3674,6 +3692,14 @@
         this.chatMessages.push(chatMsg);
         this.lastChatCount = this.chatMessages.length;
         this.renderChatMessage(chatMsg);
+
+        if (containsSwear(msg)) {
+          this.swearSkipPlayers[this.myPlayerIndex] = true;
+          this.showToast('🤬 ' + me.name + ' swore! Next turn skipped!');
+          if (this.mode === 'online') {
+            this.saveToFirebase();
+          }
+        }
 
         if (this.mode === 'online') {
           this.saveChatToFirebase();
