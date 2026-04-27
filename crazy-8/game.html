@@ -3389,6 +3389,7 @@
       },
 
       botChat: function (playerIndex) {
+        if (this.mode !== 'ai') return;
         if (!this.userHasChatted) return;
         var player = this.players[playerIndex];
         var slot = document.getElementById('player-slot-' + playerIndex);
@@ -3416,6 +3417,7 @@
       },
 
       gameEventBotChat: function (reactorIndex, context) {
+        if (this.mode !== 'ai') return;
         if (!this.userHasChatted) return;
         if (reactorIndex < 0 || reactorIndex === this.myPlayerIndex) return;
         var player = this.players[reactorIndex];
