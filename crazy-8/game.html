@@ -4041,7 +4041,8 @@
           }
           // Deal cards and start
           var deck = shuffle(buildDeck());
-          for (var i = 0; i < 7; i++) {
+          var cardsPerPlayer = data.betaMode ? 3 : 7;
+          for (var i = 0; i < cardsPerPlayer; i++) {
             for (var p = 0; p < data.playerCount; p++) {
               data.players[p].hand.push(deck.pop().toJSON());
             }
