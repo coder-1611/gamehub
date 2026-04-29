@@ -3063,6 +3063,7 @@
       },
 
       startCrazy8Call: function (playerIndex) {
+        if (this.crazy8PlayerIndex === playerIndex) return; // already active for this player
         if (this.crazy8ResolveTimer) { clearTimeout(this.crazy8ResolveTimer); this.crazy8ResolveTimer = null; }
         this.crazy8Resolving = false;
         this.crazy8PlayerIndex = playerIndex;
@@ -3371,6 +3372,16 @@
 
         if (this.mode === 'online') {
           this.saveToFirebase();
+        }
+
+        // After every turn, check all players for 1-card state and show banner
+        if (this.crazy8PlayerIndex < 0 && !this.crazy8Resolving) {
+          for (var ci = 0; ci < this.players.length; ci++) {
+            if (!this.players[ci].left && this.players[ci].hand.length === 1) {
+              this.startCrazy8Call(ci);
+              break;
+            }
+          }
         }
 
         if (next === this.myPlayerIndex) {
