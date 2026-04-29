@@ -3896,6 +3896,15 @@
             self.loadStateFromFirebase(data);
             self.renderAll();
 
+            // Dismiss banner if the tracked one-card player has drawn back to 2+ cards
+            if (self.crazy8PlayerIndex >= 0 && self.players[self.crazy8PlayerIndex] &&
+                self.players[self.crazy8PlayerIndex].hand.length !== 1) {
+              self.crazy8PlayerIndex = -1;
+              document.getElementById('one-card-alert').classList.remove('show');
+              document.getElementById('oca-crazy8-btn').style.display = 'none';
+              document.getElementById('crazy8-call-btn').style.display = 'none';
+            }
+
             // If crazy 8 was already resolved by someone else, cancel local timers and show results
             if (self.crazy8CalledBy >= 0 && !self.calledCrazy8) {
               if (self.crazy8ResolveTimer) { clearTimeout(self.crazy8ResolveTimer); self.crazy8ResolveTimer = null; }
@@ -3910,11 +3919,13 @@
               self.showCrazy8Results(prevTarget, self.crazy8CalledBy);
             }
 
-            // Check if any opponent just got to 1 card — trigger crazy 8 call
-            for (var ci = 0; ci < self.players.length; ci++) {
-              if (ci !== self.myPlayerIndex && self.players[ci].hand.length === 1 && !self.players[ci].left && self.crazy8CalledBy < 0 && !self.crazy8Resolving) {
-                self.startCrazy8Call(ci);
-                break;
+            // Check if any opponent just got to 1 card — only if no call is already active
+            if (self.crazy8PlayerIndex < 0 && self.crazy8CalledBy < 0 && !self.crazy8Resolving) {
+              for (var ci = 0; ci < self.players.length; ci++) {
+                if (ci !== self.myPlayerIndex && self.players[ci].hand.length === 1 && !self.players[ci].left) {
+                  self.startCrazy8Call(ci);
+                  break;
+                }
               }
             }
           });
