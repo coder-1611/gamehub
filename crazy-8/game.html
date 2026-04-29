@@ -2260,6 +2260,13 @@
           <button class="btn-count" data-vibe="nice" onclick="selectVibe(this,'nice')">😊 Nice</button>
         </div>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <label>Beta Test Mode</label>
+        <div class="btn-row" id="ai-beta-row">
+          <button class="btn-count selected" data-beta="off" onclick="selectBeta(this,false)">Off</button>
+          <button class="btn-count" data-beta="on" onclick="selectBeta(this,true)">On (3 cards)</button>
+        </div>
+      </div>
       <button class="btn-primary" onclick="startAIGame()">PLAY</button>
       <div class="back-link" onclick="showScreen('screen-menu')">← Back</div>
     </div>
@@ -2681,6 +2688,8 @@
         this.calledCrazy8 = false;
         this.crazy8PlayerIndex = -1;
         this.crazy8Timer = null;
+        this.crazy8ResolveTimer = null;
+        this.crazy8Resolving = false;
         this.pendingColorPick = false;
         this.animating = false;
         this.drewThisTurn = false;
@@ -2702,7 +2711,8 @@
       },
 
       dealCards: function () {
-        for (var i = 0; i < 7; i++) {
+        var cardsPerPlayer = betaMode ? 3 : 7;
+        for (var i = 0; i < cardsPerPlayer; i++) {
           for (var p = 0; p < this.players.length; p++) {
             this.players[p].hand.push(this.deck.pop());
           }
@@ -3046,6 +3056,8 @@
       },
 
       startCrazy8Call: function (playerIndex) {
+        if (this.crazy8ResolveTimer) { clearTimeout(this.crazy8ResolveTimer); this.crazy8ResolveTimer = null; }
+        this.crazy8Resolving = false;
         this.crazy8PlayerIndex = playerIndex;
         this.calledCrazy8 = false;
         this.crazy8StartTime = Date.now();
@@ -3080,52 +3092,93 @@
         this.calledCrazy8 = true;
         this.crazy8CalledBy = botIdx;
         if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
-        document.getElementById('crazy8-call-btn').style.display = 'none';
-        document.getElementById('one-card-alert').classList.remove('show');
-        document.getElementById('oca-crazy8-btn').style.display = 'none';
-        var catcher = this.players[botIdx];
-        var target = this.players[targetIndex];
-        if (target && target.hand.length === 1) {
-          this.showToast(catcher.name + ' caught ' + target.name + '! +2 cards');
-          target.hand.push(this.drawFromDeck());
-          target.hand.push(this.drawFromDeck());
-          if (targetIndex === this.myPlayerIndex) this.renderHand();
-          this.updateCardCounts();
-          this.renderOpponents();
-        }
-        if (this.mode === 'online') this.saveToFirebase();
-        this.showCrazy8Results(targetIndex, botIdx);
-        this.crazy8PlayerIndex = -1;
+        this.applyCrazy8Result(targetIndex, botIdx);
       },
 
       callCrazy8: function () {
-        if (this.crazy8PlayerIndex === -1) return;
+        if (this.crazy8PlayerIndex < 0) return;
+        if (this.crazy8ClickTimes[this.myPlayerIndex] !== undefined) return;
         var elapsed = this.crazy8StartTime ? (Date.now() - this.crazy8StartTime) : 0;
         this.crazy8ClickTimes[this.myPlayerIndex] = elapsed;
-        this.calledCrazy8 = true;
-        this.crazy8CalledBy = this.myPlayerIndex;
-        if (this.crazy8Timer) clearTimeout(this.crazy8Timer);
+        this.crazy8Resolving = true;
+
         document.getElementById('crazy8-call-btn').style.display = 'none';
         document.getElementById('one-card-alert').classList.remove('show');
         document.getElementById('oca-crazy8-btn').style.display = 'none';
-        var callerIndex = this.myPlayerIndex;
-        var targetIndex = this.crazy8PlayerIndex;
 
-        if (callerIndex === targetIndex) {
-          this.showToast(this.players[callerIndex].name + ': CRAZY 8!');
+        var targetIdx = this.crazy8PlayerIndex;
+        var self = this;
+
+        if (this.mode === 'online') {
+          // Save only MY click time — targeted PUT so we don't overwrite other players' times
+          fetch(FIREBASE_URL + '/games/' + this.gameCode + '/crazy8ClickTimes/' + this.myPlayerIndex + '.json', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(elapsed)
+          });
+          // After 500ms window, fetch all click times and resolve by minimum
+          this.crazy8ResolveTimer = setTimeout(function () {
+            self.crazy8ResolveTimer = null;
+            fetch(FIREBASE_URL + '/games/' + self.gameCode + '/crazy8ClickTimes.json')
+              .then(function (r) { return r.json(); })
+              .then(function (times) {
+                if (self.calledCrazy8) return;
+                if (self.crazy8PlayerIndex !== targetIdx) return;
+                if (times && typeof times === 'object') self.crazy8ClickTimes = times;
+                var winnerIdx = self.getMinClickTime();
+                if (winnerIdx < 0) return;
+                self.calledCrazy8 = true;
+                self.crazy8Resolving = false;
+                self.crazy8CalledBy = winnerIdx;
+                self.applyCrazy8Result(targetIdx, winnerIdx);
+              });
+          }, 500);
         } else {
-          if (this.players[targetIndex] && this.players[targetIndex].hand.length === 1) {
-            this.showToast(this.players[callerIndex].name + ' caught ' + this.players[targetIndex].name + '! +2 cards');
-            this.players[targetIndex].hand.push(this.drawFromDeck());
-            this.players[targetIndex].hand.push(this.drawFromDeck());
-            if (targetIndex === this.myPlayerIndex) this.renderHand();
+          // AI mode: human is first to record a time; bots haven't fired yet so human wins here.
+          // (If a bot fired first, crazy8PlayerIndex would already be -1 and we'd have returned above.)
+          this.calledCrazy8 = true;
+          this.crazy8Resolving = false;
+          this.crazy8CalledBy = this.myPlayerIndex;
+          this.applyCrazy8Result(targetIdx, this.myPlayerIndex);
+        }
+      },
+
+      getMinClickTime: function () {
+        var times = this.crazy8ClickTimes || {};
+        var winnerIdx = -1;
+        var minTime = Infinity;
+        Object.keys(times).forEach(function (k) {
+          var t = times[k];
+          if (typeof t === 'number' && t < minTime) { minTime = t; winnerIdx = parseInt(k); }
+        });
+        return winnerIdx;
+      },
+
+      applyCrazy8Result: function (targetIdx, winnerIdx) {
+        var target = this.players[targetIdx];
+        var winner = this.players[winnerIdx];
+        if (!winner) return;
+
+        if (winnerIdx === targetIdx) {
+          this.showToast(winner.name + ': CRAZY 8!');
+        } else {
+          if (target && target.hand.length === 1) {
+            this.showToast(winner.name + ' caught ' + target.name + '! +2 cards');
+            target.hand.push(this.drawFromDeck());
+            target.hand.push(this.drawFromDeck());
+            if (targetIdx === this.myPlayerIndex) this.renderHand();
             this.updateCardCounts();
             this.renderOpponents();
           }
         }
-        if (this.mode === 'online') this.saveToFirebase();
-        this.showCrazy8Results(targetIndex, callerIndex);
+
+        document.getElementById('crazy8-call-btn').style.display = 'none';
+        document.getElementById('one-card-alert').classList.remove('show');
+        document.getElementById('oca-crazy8-btn').style.display = 'none';
+
         this.crazy8PlayerIndex = -1;
+        if (this.mode === 'online' && winnerIdx === this.myPlayerIndex) this.saveToFirebase();
+        this.showCrazy8Results(targetIdx, winnerIdx);
       },
 
       showCrazy8Results: function (targetIndex, winnerIndex) {
@@ -3647,11 +3700,12 @@
             self.loadStateFromFirebase(data);
             self.renderAll();
 
-            // If crazy 8 was already called by someone, cancel local timer and show results
-            if (self.crazy8CalledBy >= 0 && self.crazy8Timer) {
-              clearTimeout(self.crazy8Timer);
-              self.crazy8Timer = null;
+            // If crazy 8 was already resolved by someone else, cancel local timers and show results
+            if (self.crazy8CalledBy >= 0 && !self.calledCrazy8) {
+              if (self.crazy8ResolveTimer) { clearTimeout(self.crazy8ResolveTimer); self.crazy8ResolveTimer = null; }
+              if (self.crazy8Timer) { clearTimeout(self.crazy8Timer); self.crazy8Timer = null; }
               self.calledCrazy8 = true;
+              self.crazy8Resolving = false;
               var prevTarget = self.crazy8PlayerIndex;
               self.crazy8PlayerIndex = -1;
               document.getElementById('one-card-alert').classList.remove('show');
@@ -3662,7 +3716,7 @@
 
             // Check if any opponent just got to 1 card — trigger crazy 8 call
             for (var ci = 0; ci < self.players.length; ci++) {
-              if (ci !== self.myPlayerIndex && self.players[ci].hand.length === 1 && !self.players[ci].left && self.crazy8CalledBy < 0) {
+              if (ci !== self.myPlayerIndex && self.players[ci].hand.length === 1 && !self.players[ci].left && self.crazy8CalledBy < 0 && !self.crazy8Resolving) {
                 self.startCrazy8Call(ci);
                 break;
               }
@@ -3817,6 +3871,13 @@
     var SYSTEM_PROMPT_MEAN = 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought. no holding back.';
     var SYSTEM_PROMPT_NICE = 'you are a friendly, encouraging player in a Crazy 8 card game. be warm, supportive, and fun. give genuine compliments and cheer people on. casual and upbeat, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought.';
     var SYSTEM_PROMPT = SYSTEM_PROMPT_MEAN;
+
+    var betaMode = false;
+    function selectBeta(btn, val) {
+      document.querySelectorAll('#ai-beta-row .btn-count').forEach(function(b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      betaMode = val;
+    }
 
     function selectVibe(btn, vibe) {
       document.querySelectorAll('#ai-vibe-row .btn-count').forEach(function(b) { b.classList.remove('selected'); });
