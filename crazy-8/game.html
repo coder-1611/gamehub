@@ -2253,6 +2253,13 @@
           <button class="btn-count" data-count="6">6</button>
         </div>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <label>Chat Vibe</label>
+        <div class="btn-row" id="ai-vibe-row">
+          <button class="btn-count selected" data-vibe="mean" onclick="selectVibe(this,'mean')">😈 Mean</button>
+          <button class="btn-count" data-vibe="nice" onclick="selectVibe(this,'nice')">😊 Nice</button>
+        </div>
+      </div>
       <button class="btn-primary" onclick="startAIGame()">PLAY</button>
       <div class="back-link" onclick="showScreen('screen-menu')">← Back</div>
     </div>
@@ -2526,7 +2533,7 @@
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
           max_tokens: 60,
-          messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought. no holding back.' }, { role: 'user', content: triggerMsg }]
+          messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: triggerMsg }]
         })
       }).then(function (r) { return r.json(); }).then(function (data) {
         console.log('[Groq] response:', JSON.stringify(data));
@@ -3715,7 +3722,7 @@
           fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
-            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought. no holding back.' }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
+            body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 60, messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: 'someone in the game chat said: ' + msg }] })
           }).then(function(r) {
             showGroqStatus(false, '⏳ got HTTP ' + r.status + ', parsing...');
             return r.json();
@@ -3807,6 +3814,16 @@
     window._game = game;
 
     // ===== START GAME FUNCTIONS =====
+    var SYSTEM_PROMPT_MEAN = 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought. no holding back.';
+    var SYSTEM_PROMPT_NICE = 'you are a friendly, encouraging player in a Crazy 8 card game. be warm, supportive, and fun. give genuine compliments and cheer people on. casual and upbeat, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought.';
+    var SYSTEM_PROMPT = SYSTEM_PROMPT_MEAN;
+
+    function selectVibe(btn, vibe) {
+      document.querySelectorAll('#ai-vibe-row .btn-count').forEach(function(b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      SYSTEM_PROMPT = vibe === 'nice' ? SYSTEM_PROMPT_NICE : SYSTEM_PROMPT_MEAN;
+    }
+
     function startAIGame() {
       var count = getSelectedCount('ai-count-row');
       var name = getPlayerName();
