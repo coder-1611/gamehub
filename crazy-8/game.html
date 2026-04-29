@@ -3250,7 +3250,6 @@
       },
 
       startCrazy8Call: function (playerIndex) {
-        if (this.crazy8PlayerIndex === playerIndex) return; // already active for this player
         if (this.crazy8ResolveTimer) { clearTimeout(this.crazy8ResolveTimer); this.crazy8ResolveTimer = null; }
         this.crazy8Resolving = false;
         this.crazy8PlayerIndex = playerIndex;
@@ -3561,10 +3560,12 @@
           this.saveToFirebase();
         }
 
-        // After every turn, check all players for 1-card state and show banner
-        if (this.crazy8PlayerIndex < 0 && !this.crazy8Resolving) {
+        // After every turn, check all players for 1-card state and show banner.
+        // Only run if no call is already active; skip if the same player is already tracked
+        // (prevents duplicate bot scheduling in AI mode without breaking online polling).
+        if (!this.crazy8Resolving) {
           for (var ci = 0; ci < this.players.length; ci++) {
-            if (!this.players[ci].left && this.players[ci].hand.length === 1) {
+            if (!this.players[ci].left && this.players[ci].hand.length === 1 && this.crazy8PlayerIndex !== ci) {
               this.startCrazy8Call(ci);
               break;
             }
@@ -4132,6 +4133,7 @@
         playerCount: count,
         players: initialPlayers,
         joinedCount: 1,
+        betaMode: betaMode,
         createdAt: Date.now(),
       };
 
