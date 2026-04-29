@@ -2284,6 +2284,13 @@
           <button class="btn-count" data-count="6">6</button>
         </div>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <label>Beta Test Mode</label>
+        <div class="btn-row" id="online-beta-row">
+          <button class="btn-count selected" onclick="selectBetaOnline(this,false)">Off</button>
+          <button class="btn-count" onclick="selectBetaOnline(this,true)">On (3 cards)</button>
+        </div>
+      </div>
       <div style="display:flex;gap:14px;margin-top:24px">
         <button class="btn-primary" onclick="createOnlineGame()" style="margin-top:0">CREATE GAME</button>
         <button class="btn-secondary" onclick="showScreen('screen-join')">JOIN GAME</button>
@@ -3600,6 +3607,7 @@
           crazy8StartTime: this.crazy8StartTime || 0,
           crazy8ClickTimes: this.crazy8ClickTimes || {},
           swearSkipPlayers: this.swearSkipPlayers || {},
+          betaMode: this.betaMode || false,
         };
       },
 
@@ -3618,6 +3626,7 @@
         this.crazy8StartTime = data.crazy8StartTime || 0;
         this.crazy8ClickTimes = data.crazy8ClickTimes || {};
         this.swearSkipPlayers = data.swearSkipPlayers || {};
+        if (data.betaMode !== undefined) betaMode = data.betaMode;
         this.createdAt = data.createdAt;
         this.drewThisTurn = false;
         this.animating = false;
@@ -3878,6 +3887,11 @@
       btn.classList.add('selected');
       betaMode = val;
     }
+    function selectBetaOnline(btn, val) {
+      document.querySelectorAll('#online-beta-row .btn-count').forEach(function(b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      betaMode = val;
+    }
 
     function selectVibe(btn, vibe) {
       document.querySelectorAll('#ai-vibe-row .btn-count').forEach(function(b) { b.classList.remove('selected'); });
@@ -3890,6 +3904,7 @@
       var name = getPlayerName();
 
       game.playerName = name;
+      game.betaMode = betaMode;
       game.initAI(count);
     }
 
@@ -3898,8 +3913,8 @@
       var count = getSelectedCount('online-count-row');
       var name = getPlayerName();
 
-
       game.playerName = name;
+      game.betaMode = betaMode;
       game.playerCount = count;
       game.myPlayerIndex = 0;
       game.gameCode = code;
