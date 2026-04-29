@@ -3482,6 +3482,8 @@
         this.updatePassBtn();
         this.updateDrawPile();
 
+        if (this.mode === 'online') this.saveToFirebase();
+
         // Check if drawn card can be played
         var topCard = this.discardPile[this.discardPile.length - 1];
         if (!card.canPlayOn(topCard, this.currentColor)) {
