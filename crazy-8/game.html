@@ -2865,6 +2865,7 @@
         if (chatEl) chatEl.innerHTML = '';
         this.loadStateFromFirebase(data);
         this.loadChatFromFirebase(data);
+        this._prevHandLengths = this.players.map(function(p) { return p.hand.length; });
         this.showTable();
         this.renderAll();
         this.startPolling();
@@ -3921,15 +3922,19 @@
               self.showCrazy8Results(prevTarget, self.crazy8CalledBy);
             }
 
-            // Check if any opponent just got to 1 card — only if no call is already active
+            // Trigger banner only when a player's hand JUST transitioned from >1 to 1
             if (self.crazy8PlayerIndex < 0 && self.crazy8CalledBy < 0 && !self.crazy8Resolving) {
+              var prev = self._prevHandLengths || [];
               for (var ci = 0; ci < self.players.length; ci++) {
-                if (ci !== self.myPlayerIndex && self.players[ci].hand.length === 1 && !self.players[ci].left) {
+                var newLen = self.players[ci].hand.length;
+                var oldLen = (prev[ci] !== undefined) ? prev[ci] : newLen;
+                if (ci !== self.myPlayerIndex && !self.players[ci].left && newLen === 1 && oldLen > 1) {
                   self.startCrazy8Call(ci);
                   break;
                 }
               }
             }
+            self._prevHandLengths = self.players.map(function(p) { return p.hand.length; });
           });
         }, 1500);
       },
