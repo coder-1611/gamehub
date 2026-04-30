@@ -3250,6 +3250,20 @@
         alertEl.classList.add('show');
       },
 
+      dismissCrazy8IfStale: function () {
+        if (this.crazy8PlayerIndex < 0) return;
+        var p = this.players[this.crazy8PlayerIndex];
+        if (!p || (p.hand && p.hand.length !== 1)) {
+          if (this.crazy8ResolveTimer) { clearTimeout(this.crazy8ResolveTimer); this.crazy8ResolveTimer = null; }
+          if (this.crazy8Timer) { clearTimeout(this.crazy8Timer); this.crazy8Timer = null; }
+          this.crazy8PlayerIndex = -1;
+          this.crazy8Resolving = false;
+          document.getElementById('one-card-alert').classList.remove('show');
+          document.getElementById('oca-crazy8-btn').style.display = 'none';
+          document.getElementById('crazy8-call-btn').style.display = 'none';
+        }
+      },
+
       startCrazy8Call: function (playerIndex) {
         if (this.crazy8ResolveTimer) { clearTimeout(this.crazy8ResolveTimer); this.crazy8ResolveTimer = null; }
         this.crazy8Resolving = false;
@@ -3482,8 +3496,12 @@
         this.updateCardCounts();
         this.updatePassBtn();
         this.updateDrawPile();
+        this.dismissCrazy8IfStale();
 
-        if (this.mode === 'online') this.saveToFirebase();
+        if (this.mode === 'online') {
+          this.actionTimestamp = Date.now();
+          this.saveToFirebase();
+        }
 
         // Check if drawn card can be played
         var topCard = this.discardPile[this.discardPile.length - 1];
@@ -3558,6 +3576,7 @@
         this.renderTurnOrder();
         this.updateDrawPile();
         this.updatePassBtn();
+        this.dismissCrazy8IfStale();
 
         if (this.mode === 'online') {
           this.saveToFirebase();
@@ -3854,6 +3873,10 @@
           firebaseLoad(self.gameCode).then(function (data) {
             if (!data) return;
 
+            // Auto-dismiss banner whenever the tracked one-card player no longer has 1 card.
+            // Runs unconditionally on every poll so it works even when it's our turn.
+            self.dismissCrazy8IfStale();
+
             // Always sync chat
             self.loadChatFromFirebase(data);
 
@@ -3898,15 +3921,7 @@
             self.lastSyncTimestamp = data.actionTimestamp;
             self.loadStateFromFirebase(data);
             self.renderAll();
-
-            // Dismiss banner if the tracked one-card player has drawn back to 2+ cards
-            if (self.crazy8PlayerIndex >= 0 && self.players[self.crazy8PlayerIndex] &&
-                self.players[self.crazy8PlayerIndex].hand.length !== 1) {
-              self.crazy8PlayerIndex = -1;
-              document.getElementById('one-card-alert').classList.remove('show');
-              document.getElementById('oca-crazy8-btn').style.display = 'none';
-              document.getElementById('crazy8-call-btn').style.display = 'none';
-            }
+            self.dismissCrazy8IfStale();
 
             // If crazy 8 was already resolved by someone else, cancel local timers and show results
             if (self.crazy8CalledBy >= 0 && !self.calledCrazy8) {
