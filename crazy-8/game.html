@@ -3368,6 +3368,7 @@
       },
 
       applyCrazy8Result: function (targetIdx, winnerIdx) {
+        if (this._crazy8FallbackTimer) { clearTimeout(this._crazy8FallbackTimer); this._crazy8FallbackTimer = null; }
         var target = this.players[targetIdx];
         var winner = this.players[winnerIdx];
         if (!winner) return;
@@ -3469,6 +3470,18 @@
                 this.actionTimestamp = Date.now();
                 this.saveToFirebase();
               }
+              // Fallback: if nobody calls within 2.5s, auto-self-call so the game doesn't stall.
+              // (Bots in AI mode react in 500–1500ms; online mode has no automatic resolver.)
+              var fbSelf = this;
+              if (this._crazy8FallbackTimer) clearTimeout(this._crazy8FallbackTimer);
+              this._crazy8FallbackTimer = setTimeout(function () {
+                fbSelf._crazy8FallbackTimer = null;
+                if (fbSelf.calledCrazy8 || fbSelf.crazy8PlayerIndex !== playerIndex) return;
+                fbSelf.crazy8ClickTimes[fbSelf.myPlayerIndex] = fbSelf.crazy8StartTime ? (Date.now() - fbSelf.crazy8StartTime) : 0;
+                fbSelf.calledCrazy8 = true;
+                fbSelf.crazy8CalledBy = fbSelf.myPlayerIndex;
+                fbSelf.applyCrazy8Result(playerIndex, fbSelf.myPlayerIndex);
+              }, 2500);
               this.animating = false;
               return;
             }
