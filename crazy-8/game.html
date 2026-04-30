@@ -3235,8 +3235,9 @@
 
         this.executePlay(card, this.myPlayerIndex);
 
-        // Crazy 8 call check — show button to everyone
-        if (player.hand.length === 1) {
+        // Crazy 8 call check — show button to everyone.
+        // Skip if executePlay already deferred a wild card play (banner already started).
+        if (player.hand.length === 1 && !this._pendingColorPickAfterCrazy8) {
           this.startCrazy8Call(this.myPlayerIndex);
         }
       },
@@ -3393,6 +3394,28 @@
           this.saveToFirebase();
         }
         this.showCrazy8Results(targetIdx, winnerIdx);
+
+        // If a wild card play was deferred waiting for Crazy 8 to resolve, continue it now
+        if (this._pendingColorPickAfterCrazy8) {
+          this._pendingColorPickAfterCrazy8 = false;
+          this.pendingColorPick = true;
+          document.getElementById('color-picker-overlay').classList.add('show');
+        } else if (this._pendingBotWild) {
+          this.finishBotWildPlay();
+        }
+      },
+
+      finishBotWildPlay: function () {
+        if (!this._pendingBotWild) return;
+        var card = this._pendingBotWild.card;
+        var playerIndex = this._pendingBotWild.playerIndex;
+        this._pendingBotWild = null;
+        var color = this.botPickColor(playerIndex);
+        this.currentColor = color;
+        this.updateColorIndicator();
+        if (card.value === 'wild4') this.mustDraw = 4;
+        this.showToast(this.players[playerIndex].name + ' chose ' + color.toUpperCase());
+        this.nextTurn();
       },
 
       showCrazy8Results: function (targetIndex, winnerIndex) {
@@ -3434,16 +3457,43 @@
         }
 
         if (card.isWild) {
+          var goingToOne = this.players[playerIndex].hand.length === 1;
           if (playerIndex === this.myPlayerIndex) {
-            if (this.players[playerIndex].hand.length === 1) {
+            this.pendingCard = card;
+            if (goingToOne) {
+              // 2→1 transition on a wild: do the Crazy 8 call FIRST, defer color picker
+              this._pendingColorPickAfterCrazy8 = true;
               this.startCrazy8Call(playerIndex);
+              if (this.mode === 'online') {
+                this.actionTimestamp = Date.now();
+                this.saveToFirebase();
+              }
+              this.animating = false;
+              return;
             }
             this.pendingColorPick = true;
-            this.pendingCard = card;
             document.getElementById('color-picker-overlay').classList.add('show');
             this.animating = false;
             return;
           } else {
+            if (goingToOne) {
+              // Bot played wild going to 1: defer color pick AND nextTurn until Crazy 8 resolves
+              this._pendingBotWild = { card: card, playerIndex: playerIndex };
+              this.startCrazy8Call(playerIndex);
+              // Schedule the playing bot's self-call (95% chance) since botTurn skipped it
+              if (this.mode === 'ai' && Math.random() > 0.05) {
+                var selfBot = this;
+                var u = Math.random();
+                var selfDelay = 500 + u * u * 1000;
+                setTimeout(function () {
+                  if (selfBot.crazy8PlayerIndex === playerIndex && !selfBot.calledCrazy8) {
+                    selfBot.botCallCrazy8(playerIndex, playerIndex);
+                  }
+                }, selfDelay);
+              }
+              this.animating = false;
+              return;
+            }
             var color = this.botPickColor(playerIndex);
             this.currentColor = color;
             this.updateColorIndicator();
@@ -3634,7 +3684,8 @@
 
           this.executePlay(chosen.card, this.currentPlayerIndex);
 
-          if (player.hand.length === 1) {
+          // If the wild deferred the play, the banner & timers were already started inside executePlay
+          if (player.hand.length === 1 && !this._pendingBotWild) {
             this.startCrazy8Call(this.currentPlayerIndex);
             // Bot self-calls 95% of the time (5% forget)
             var self = this;
