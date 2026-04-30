@@ -3699,8 +3699,12 @@
 
         if (this.swearSkipPlayers && this.swearSkipPlayers[next]) {
           delete this.swearSkipPlayers[next];
-          this.showToast('🤬 ' + this.players[next].name + '\'s turn skipped for swearing!');
-          next = this.getNextPlayer(next);
+          this.showToast('🤬 ' + this.players[next].name + ' penalized +4 cards for swearing!');
+          for (var i = 0; i < 4; i++) {
+            this.players[next].hand.push(this.drawFromDeck());
+          }
+          this.updateCardCounts();
+          if (next === this.myPlayerIndex) this.renderHand();
         }
 
         if (this.mustDraw > 0) {
@@ -4139,7 +4143,7 @@
 
         if (containsSwear(msg)) {
           this.swearSkipPlayers[this.myPlayerIndex] = true;
-          this.showToast('🤬 ' + me.name + ' swore! Next turn skipped!');
+          this.showToast('🤬 ' + me.name + ' swore! +4 cards penalty!');
           if (this.mode === 'online') {
             this.saveToFirebase();
           }
