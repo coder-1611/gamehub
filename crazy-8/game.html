@@ -450,6 +450,48 @@
       flex-direction: row-reverse
     }
 
+    /* Compact layout for many players (>6): wrap at top */
+    #compact-opponents {
+      position: fixed;
+      top: 6px;
+      left: 60px;
+      right: 60px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      z-index: 10;
+      max-height: 35vh;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .player-slot.compact {
+      position: static;
+      transform: none;
+      flex-direction: column;
+      gap: 2px;
+      align-items: center;
+      width: 64px;
+    }
+    .player-slot.compact .avatar {
+      width: 38px;
+      height: 38px;
+      border-width: 2px;
+    }
+    .player-slot.compact .avatar-face { font-size: 20px; }
+    .player-slot.compact .player-name {
+      font-size: 11px;
+      max-width: 60px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-slot.compact .opponent-cards { display: none; }
+    .player-slot.compact .card-count-badge {
+      width: 18px; height: 18px; font-size: 11px;
+      bottom: -2px; right: -2px;
+    }
+
     .player-info {
       display: flex;
       flex-direction: column;
@@ -2439,7 +2481,9 @@
           <button class="btn-count selected" data-count="4">4</button>
           <button class="btn-count" data-count="5">5</button>
           <button class="btn-count" data-count="6">6</button>
+          <button class="btn-count" data-count="custom" onclick="document.getElementById('ai-custom-count').style.display='inline-block';document.getElementById('ai-custom-count').focus();">Custom</button>
         </div>
+        <input type="number" id="ai-custom-count" min="3" max="25" value="8" placeholder="3–25" oninput="this.value = Math.max(3, Math.min(25, parseInt(this.value)||3))" style="display:none;margin-top:10px;width:100%;padding:10px;border-radius:8px;border:1px solid #555;background:#1a1a2e;color:#fff;font-size:15px;box-sizing:border-box;">
       </div>
       <div class="panel" style="margin-top:16px">
         <label>Chat Vibe</label>
@@ -2470,7 +2514,9 @@
           <button class="btn-count selected" data-count="4">4</button>
           <button class="btn-count" data-count="5">5</button>
           <button class="btn-count" data-count="6">6</button>
+          <button class="btn-count" data-count="custom" onclick="document.getElementById('online-custom-count').style.display='inline-block';document.getElementById('online-custom-count').focus();">Custom</button>
         </div>
+        <input type="number" id="online-custom-count" min="3" max="25" value="8" placeholder="3–25" oninput="this.value = Math.max(3, Math.min(25, parseInt(this.value)||3))" style="display:none;margin-top:10px;width:100%;padding:10px;border-radius:8px;border:1px solid #555;background:#1a1a2e;color:#fff;font-size:15px;box-sizing:border-box;">
       </div>
       <div class="panel" style="margin-top:16px">
         <label>Beta Test Mode</label>
@@ -2694,21 +2740,37 @@
         btn.addEventListener('click', function () {
           row.querySelectorAll('.btn-count').forEach(function (b) { b.classList.remove('selected'); });
           btn.classList.add('selected');
+          // Hide custom input if a non-custom button was clicked
+          if (btn.dataset.count && btn.dataset.count !== 'custom') {
+            var rowId = row.id;
+            var inputId = rowId.replace('-count-row', '-custom-count');
+            var input = document.getElementById(inputId);
+            if (input) input.style.display = 'none';
+          }
         });
       });
     });
 
     function getSelectedCount(rowId) {
       var el = document.querySelector('#' + rowId + ' .btn-count.selected');
-      return el ? parseInt(el.dataset.count) : 4;
+      if (!el) return 4;
+      var dc = el.dataset.count;
+      if (dc === 'custom') {
+        var inputId = rowId.replace('-count-row', '-custom-count');
+        var input = document.getElementById(inputId);
+        var v = input ? parseInt(input.value) : NaN;
+        if (isNaN(v)) v = 8;
+        return Math.min(25, Math.max(3, v));
+      }
+      return parseInt(dc) || 4;
     }
 
     // ===== CONSTANTS =====
     var COLORS = ['red', 'yellow', 'green', 'blue'];
     var VALUES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2'];
-    var AVATARS = ['😎', '😤', '🤩', '🤢', '😈', '🤠', '👻', '🥳', '😺', '🤖'];
-    var AVATAR_COLORS = ['#2196F3', '#E91E63', '#FF9800', '#4CAF50', '#9C27B0', '#00BCD4'];
-    var BOT_NAMES = ['Lisa2744', 'Chris', 'SICKO MODE', 'viv', 'Moan King', 'BigDawg', 'xXSlayerXx', 'NoobMaster', 'Karen99'];
+    var AVATARS = ['😎', '😤', '🤩', '🤢', '😈', '🤠', '👻', '🥳', '😺', '🤖', '🦊', '🐼', '🦁', '🐸', '🐵', '🐯', '🐨', '🐰', '🐶', '🐱', '🦄', '🐲', '🦖', '🐙', '🦉', '🐺', '🦝'];
+    var AVATAR_COLORS = ['#2196F3', '#E91E63', '#FF9800', '#4CAF50', '#9C27B0', '#00BCD4', '#F44336', '#3F51B5', '#FFC107', '#009688', '#673AB7', '#FF5722'];
+    var BOT_NAMES = ['Lisa2744', 'Chris', 'SICKO MODE', 'viv', 'Moan King', 'BigDawg', 'xXSlayerXx', 'NoobMaster', 'Karen99', 'Dave', 'TheBlur', 'Penguin42', 'Mango', 'Rex', 'Luna', 'Zaphod', 'Quill', 'Mochi', 'Tank', 'Pixel', 'Echo', 'Nova', 'Ghost', 'Sniffles', 'Wasabi'];
 
     // ===== GROQ AI CHAT =====
     var GROQ_API_KEY = (function () { var p = ["Z3NrX3JiYkJzd0Ex", "dWdoVHhiVjZlVGJm", "V0dkeWIzRlljVjY5", "RXJsN1BGaTk5QjVo", "T3k2T05nZXc="]; return atob(p.join('')); })();
@@ -2960,7 +3022,22 @@
       renderOpponents: function () {
         var container = document.getElementById('opponents-container');
         container.innerHTML = '';
-        var positions = this.getOpponentPositions();
+        // Remove any existing compact container
+        var existingCompact = document.getElementById('compact-opponents');
+        if (existingCompact) existingCompact.remove();
+
+        var n = this.playerCount - 1;
+        var compactMode = n > 5;
+        var positions = compactMode ? null : this.getOpponentPositions();
+
+        // Build a compact host if needed
+        var compactHost = null;
+        if (compactMode) {
+          compactHost = document.createElement('div');
+          compactHost.id = 'compact-opponents';
+          document.body.appendChild(compactHost);
+        }
+
         // Order opponents clockwise from player's left: start at myIndex-1, go backwards
         var ordered = [];
         var idx = (this.myPlayerIndex - 1 + this.playerCount) % this.playerCount;
@@ -2972,9 +3049,13 @@
         for (var o = 0; o < ordered.length; o++) {
           var i = ordered[o];
           var player = this.players[i];
-          var pos = positions[opIdx++];
           var slot = document.createElement('div');
-          slot.className = 'player-slot ' + pos;
+          if (compactMode) {
+            slot.className = 'player-slot compact';
+          } else {
+            var pos = positions[opIdx++];
+            slot.className = 'player-slot ' + pos;
+          }
           slot.id = 'player-slot-' + i;
           if (player.left) slot.classList.add('player-left');
           var active = i === this.currentPlayerIndex && !player.left ? ' active-turn' : '';
@@ -2990,8 +3071,8 @@
             '</div>' +
             '<div class="player-name">' + player.name + '</div>' +
             '</div>' +
-            '<div class="opponent-cards" id="cards-' + i + '">' + this.renderCardBacks(player.hand.length) + '</div>';
-          container.appendChild(slot);
+            '<div class="opponent-cards" id="cards-' + i + '">' + (compactMode ? '' : this.renderCardBacks(player.hand.length)) + '</div>';
+          (compactMode ? compactHost : container).appendChild(slot);
         }
       },
 
@@ -4216,7 +4297,7 @@
       // Build initial state: just player 1 joined
       var initialPlayers = [{ name: name, hand: [], isHuman: true, avatar: getChosenAvatar(), avatarColor: AVATAR_COLORS[0], photo: getChosenAvatarPhoto(), joined: true }];
       for (var i = 1; i < count; i++) {
-        initialPlayers.push({ name: '', hand: [], isHuman: true, avatar: AVATARS[i] || '🤖', avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length], joined: false });
+        initialPlayers.push({ name: '', hand: [], isHuman: true, avatar: AVATARS[i % AVATARS.length] || '🤖', avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length], joined: false });
       }
 
       var data = {
@@ -4419,9 +4500,9 @@
         div.className = 'lobby-player';
         var lobbyAvatarHtml = p.photo
           ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-          : (p.avatar || AVATARS[i]);
+          : (p.avatar || AVATARS[i % AVATARS.length]);
         div.innerHTML =
-          '<div class="lp-avatar" style="background:' + (p.avatarColor || AVATAR_COLORS[i]) + '">' + lobbyAvatarHtml + '</div>' +
+          '<div class="lp-avatar" style="background:' + (p.avatarColor || AVATAR_COLORS[i % AVATAR_COLORS.length]) + '">' + lobbyAvatarHtml + '</div>' +
           '<div class="lp-name">' + (p.joined ? p.name : 'Waiting...') + '</div>' +
           '<div class="lp-status">' + (p.joined ? '✓ Ready' : '⏳') + '</div>';
         container.appendChild(div);
