@@ -3250,10 +3250,12 @@
         alertEl.classList.add('show');
       },
 
-      dismissCrazy8IfStale: function () {
+      dismissCrazy8IfStale: function (playersOverride) {
         if (this.crazy8PlayerIndex < 0) return;
-        var p = this.players[this.crazy8PlayerIndex];
-        if (!p || (p.hand && p.hand.length !== 1)) {
+        var players = playersOverride || this.players;
+        var p = players[this.crazy8PlayerIndex];
+        var handLen = (p && p.hand) ? p.hand.length : 0;
+        if (!p || handLen !== 1) {
           if (this.crazy8ResolveTimer) { clearTimeout(this.crazy8ResolveTimer); this.crazy8ResolveTimer = null; }
           if (this.crazy8Timer) { clearTimeout(this.crazy8Timer); this.crazy8Timer = null; }
           this.crazy8PlayerIndex = -1;
@@ -3386,7 +3388,10 @@
         document.getElementById('oca-crazy8-btn').style.display = 'none';
 
         this.crazy8PlayerIndex = -1;
-        if (this.mode === 'online' && winnerIdx === this.myPlayerIndex) this.saveToFirebase();
+        if (this.mode === 'online' && winnerIdx === this.myPlayerIndex) {
+          this.actionTimestamp = Date.now();
+          this.saveToFirebase();
+        }
         this.showCrazy8Results(targetIdx, winnerIdx);
       },
 
@@ -3811,7 +3816,7 @@
           gameOver: this.gameOver,
           actionTimestamp: this.actionTimestamp,
           createdAt: this.createdAt || Date.now(),
-          crazy8PlayerIndex: this.crazy8PlayerIndex !== undefined ? this.crazy8PlayerIndex : -1,
+          // crazy8PlayerIndex is purely LOCAL UI state — each client tracks who they're showing the banner for.
           crazy8CalledBy: this.crazy8CalledBy !== undefined ? this.crazy8CalledBy : -1,
           crazy8StartTime: this.crazy8StartTime || 0,
           crazy8ClickTimes: this.crazy8ClickTimes || {},
@@ -3830,7 +3835,8 @@
         this.skipNext = data.skipNext || false;
         this.gameOver = data.gameOver || false;
         this.actionTimestamp = data.actionTimestamp || 0;
-        this.crazy8PlayerIndex = (data.crazy8PlayerIndex !== undefined) ? data.crazy8PlayerIndex : -1;
+        // crazy8PlayerIndex is purely LOCAL UI state — DO NOT overwrite it from Firebase.
+        // (otherwise dismissCrazy8IfStale loses track of who the banner is showing for.)
         this.crazy8CalledBy = (data.crazy8CalledBy !== undefined) ? data.crazy8CalledBy : -1;
         this.crazy8StartTime = data.crazy8StartTime || 0;
         this.crazy8ClickTimes = data.crazy8ClickTimes || {};
@@ -3873,14 +3879,30 @@
           firebaseLoad(self.gameCode).then(function (data) {
             if (!data) return;
 
-            // Auto-dismiss banner whenever the tracked one-card player no longer has 1 card.
-            // Runs unconditionally on every poll so it works even when it's our turn.
-            self.dismissCrazy8IfStale();
-
             // Always sync chat
             self.loadChatFromFirebase(data);
 
             normalizePlayers(data);
+
+            // Auto-dismiss banner using FIRESTORE data so it works even during our own turn
+            // (when polling early-returns before loadStateFromFirebase). Reads only — does not
+            // mutate game state.
+            self.dismissCrazy8IfStale(data.players);
+
+            // Resolution signal: if anyone saved crazy8CalledBy >= 0, dismiss banner and show results.
+            // Runs before early returns so we don't miss it when polling skips state sync.
+            if (data.crazy8CalledBy !== undefined && data.crazy8CalledBy >= 0 && !self.calledCrazy8) {
+              if (self.crazy8ResolveTimer) { clearTimeout(self.crazy8ResolveTimer); self.crazy8ResolveTimer = null; }
+              if (self.crazy8Timer) { clearTimeout(self.crazy8Timer); self.crazy8Timer = null; }
+              self.calledCrazy8 = true;
+              self.crazy8Resolving = false;
+              var prevTarget = self.crazy8PlayerIndex;
+              self.crazy8PlayerIndex = -1;
+              document.getElementById('one-card-alert').classList.remove('show');
+              document.getElementById('oca-crazy8-btn').style.display = 'none';
+              document.getElementById('crazy8-call-btn').style.display = 'none';
+              if (prevTarget >= 0) self.showCrazy8Results(prevTarget, data.crazy8CalledBy);
+            }
 
             // Check for game over FIRST — even during our turn
             if (data.gameOver) {
@@ -3922,20 +3944,6 @@
             self.loadStateFromFirebase(data);
             self.renderAll();
             self.dismissCrazy8IfStale();
-
-            // If crazy 8 was already resolved by someone else, cancel local timers and show results
-            if (self.crazy8CalledBy >= 0 && !self.calledCrazy8) {
-              if (self.crazy8ResolveTimer) { clearTimeout(self.crazy8ResolveTimer); self.crazy8ResolveTimer = null; }
-              if (self.crazy8Timer) { clearTimeout(self.crazy8Timer); self.crazy8Timer = null; }
-              self.calledCrazy8 = true;
-              self.crazy8Resolving = false;
-              var prevTarget = self.crazy8PlayerIndex;
-              self.crazy8PlayerIndex = -1;
-              document.getElementById('one-card-alert').classList.remove('show');
-              document.getElementById('oca-crazy8-btn').style.display = 'none';
-              document.getElementById('crazy8-call-btn').style.display = 'none';
-              self.showCrazy8Results(prevTarget, self.crazy8CalledBy);
-            }
 
             // Trigger banner only when a player's hand JUST transitioned from >1 to 1
             if (self.crazy8PlayerIndex < 0 && self.crazy8CalledBy < 0 && !self.crazy8Resolving) {
