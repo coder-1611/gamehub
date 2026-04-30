@@ -3696,16 +3696,7 @@
           }
           next = this.getNextPlayer(next);
         }
-
-        if (this.swearSkipPlayers && this.swearSkipPlayers[next]) {
-          delete this.swearSkipPlayers[next];
-          this.showToast('🤬 ' + this.players[next].name + ' penalized +4 cards for swearing!');
-          for (var i = 0; i < 4; i++) {
-            this.players[next].hand.push(this.drawFromDeck());
-          }
-          this.updateCardCounts();
-          if (next === this.myPlayerIndex) this.renderHand();
-        }
+        // (swear skip logic removed - handled immediately in sendChat)
 
         if (this.mustDraw > 0) {
           var drawCount = this.mustDraw;
@@ -4142,8 +4133,12 @@
         this.renderChatMessage(chatMsg);
 
         if (containsSwear(msg)) {
-          this.swearSkipPlayers[this.myPlayerIndex] = true;
           this.showToast('🤬 ' + me.name + ' swore! +4 cards penalty!');
+          for (var i = 0; i < 4; i++) {
+            me.hand.push(this.drawFromDeck());
+          }
+          this.updateCardCounts();
+          this.renderHand();
           if (this.mode === 'online') {
             this.saveToFirebase();
           }
