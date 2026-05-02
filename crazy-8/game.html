@@ -2605,6 +2605,7 @@
             '<div class="dev-snap-players">' + (playersHtml || '<div style="color:#666;font-size:12px;">no players</div>') + '</div>' +
             '<div class="dev-snap-meta">' +
               '<span>players: ' + players.length + '</span>' +
+              '<span>moves: ' + (typeof data.moveCount === 'number' ? data.moveCount : Math.max(0, (Array.isArray(data.discardPile) ? data.discardPile.length : (data.discardPile ? Object.keys(data.discardPile).length : 0)) - 1) + '*') + '</span>' +
               '<span>direction: ' + dirSym + '</span>' +
               '<span>last action: ' + escHtml(actionAt) + '</span>' +
               (winnerIdx >= 0 ? '<span style="color:#6f6;">winner: ' + escHtml(players[winnerIdx].name || '?') + '</span>' : '') +
@@ -3152,6 +3153,7 @@
         this.currentPlayerIndex = 0;
         this.currentColor = null;
         this.gameOver = false;
+        this.moveCount = 0;
         this.mustDraw = 0;
         this.skipNext = false;
         this.calledCrazy8 = false;
@@ -3738,6 +3740,7 @@
 
       executePlay: function (card, playerIndex) {
         this.discardPile.push(card);
+        this.moveCount = (this.moveCount || 0) + 1;
         this.currentColor = card.isWild ? null : card.color;
 
         this.renderDiscard();
@@ -3851,6 +3854,7 @@
         var card = this.drawFromDeck();
         player.hand.push(card);
         this.drewThisTurn = true;
+        this.moveCount = (this.moveCount || 0) + 1;
 
         this.showToast('Drew a card');
         this.renderHand();
@@ -4166,6 +4170,7 @@
           mustDraw: this.mustDraw,
           skipNext: this.skipNext,
           gameOver: this.gameOver,
+          moveCount: this.moveCount || 0,
           actionTimestamp: this.actionTimestamp,
           createdAt: this.createdAt || Date.now(),
           // crazy8PlayerIndex is purely LOCAL UI state — each client tracks who they're showing the banner for.
@@ -4186,6 +4191,7 @@
         this.mustDraw = data.mustDraw || 0;
         this.skipNext = data.skipNext || false;
         this.gameOver = data.gameOver || false;
+        this.moveCount = data.moveCount || 0;
         this.actionTimestamp = data.actionTimestamp || 0;
         // crazy8PlayerIndex is purely LOCAL UI state — DO NOT overwrite it from Firebase.
         // (otherwise dismissCrazy8IfStale loses track of who the banner is showing for.)
