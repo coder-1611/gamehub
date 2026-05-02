@@ -2902,11 +2902,11 @@
     // rule changes, game deletion, and other client overwrites.
     var CHAT_ARCHIVE_KEY = 'crazy8_chat_archive_v1';
     function archiveChatLocally(code, msg) {
-      if (!msg) return;
+      if (!msg || !code) return; // AI mode has no game code; archive is for online games only
       try {
         var raw = localStorage.getItem(CHAT_ARCHIVE_KEY);
         var store = raw ? JSON.parse(raw) : {};
-        var key = code || '_no_code';
+        var key = code;
         var arr = store[key] || [];
         var sig = (msg.ts || 0) + '|' + (msg.name || '') + '|' + (msg.text || '');
         for (var i = arr.length - 1; i >= 0 && i > arr.length - 30; i--) {
@@ -3167,7 +3167,14 @@
         this.crazy8Timer = null;
         this.crazy8ResolveTimer = null;
         this.crazy8Resolving = false;
+        this.crazy8CalledBy = -1;
+        this.crazy8StartTime = 0;
+        this.crazy8ClickTimes = {};
         this.pendingColorPick = false;
+        this.pendingCard = null;
+        this._pendingColorPickAfterCrazy8 = false;
+        this._pendingBotWild = null;
+        if (this._crazy8FallbackTimer) { clearTimeout(this._crazy8FallbackTimer); this._crazy8FallbackTimer = null; }
         this.animating = false;
         this.drewThisTurn = false;
         this.actionTimestamp = Date.now();
@@ -3516,9 +3523,15 @@
       drawFromDeck: function () {
         if (this.deck.length === 0) {
           var top = this.discardPile.pop();
-          var self = this;
           this.deck = shuffle(this.discardPile.map(function (c) { return new Card(c.isWild ? 'wild' : c.color, c.value); }));
-          this.discardPile = [top];
+          this.discardPile = top ? [top] : [];
+        }
+        // If still empty (extreme edge case: nearly all cards in hands), give a harmless filler
+        // matching the current top color to keep the game flowing.
+        if (this.deck.length === 0) {
+          var topNow = this.discardPile[this.discardPile.length - 1];
+          var fillerColor = (topNow && !topNow.isWild) ? topNow.color : (this.currentColor || 'red');
+          return new Card(fillerColor, '0');
         }
         return this.deck.pop();
       },
@@ -3806,6 +3819,15 @@
                   }
                 }, selfDelay);
               }
+              // Fallback: if nobody catches within 2.5s (5% bot self-skip + lone-bot scenarios),
+              // force-resolve so the game doesn't stall.
+              var fbBot = this;
+              if (this._crazy8FallbackTimer) clearTimeout(this._crazy8FallbackTimer);
+              this._crazy8FallbackTimer = setTimeout(function () {
+                fbBot._crazy8FallbackTimer = null;
+                if (fbBot.calledCrazy8 || fbBot.crazy8PlayerIndex !== playerIndex) return;
+                fbBot.botCallCrazy8(playerIndex, playerIndex);
+              }, 2500);
               this.animating = false;
               return;
             }
@@ -4030,6 +4052,17 @@
             setTimeout(function () {
               player.hand.splice(player.hand.indexOf(drawn), 1);
               self.executePlay(drawn, ci);
+              if (player.hand.length === 1 && !self._pendingBotWild && !self.gameOver) {
+                self.startCrazy8Call(ci);
+                if (Math.random() > 0.05) {
+                  var u = Math.random();
+                  setTimeout(function () {
+                    if (self.crazy8PlayerIndex === ci && !self.calledCrazy8) {
+                      self.botCallCrazy8(ci, ci);
+                    }
+                  }, 500 + u * u * 1000);
+                }
+              }
             }, 600);
           } else {
             this.nextTurn();
