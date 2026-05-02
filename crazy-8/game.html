@@ -2452,7 +2452,13 @@
         })
         .then(function (results) {
           if (!results) return;
-          var games = results.filter(function (r) { return r.data; });
+          // Hide everything created on/before AKL7A (2026-04-05 4:25:26 PM CDT).
+          var DEV_CUTOFF_TS = 1775424326944;
+          var games = results.filter(function (r) {
+            if (!r.data) return false;
+            var t = r.data.createdAt || r.data.actionTimestamp || 0;
+            return t > DEV_CUTOFF_TS;
+          });
           // Most recent first, by createdAt fallback to actionTimestamp.
           games.sort(function (a, b) {
             var ta = a.data.createdAt || a.data.actionTimestamp || 0;
