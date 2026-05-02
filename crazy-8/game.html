@@ -2716,6 +2716,37 @@
       return code;
     }
 
+    // ===== CHAT LOG (persistent, survives Firebase overwrites) =====
+    var CHAT_LOG_KEY = 'crazy8_chatlog';
+    var loggedChatKeys = {};
+    function logChatToFile(msg, gameCode, mode) {
+      try {
+        if (!msg || !msg.text) return;
+        var key = (msg.ts || 0) + '|' + (msg.name || '') + '|' + msg.text;
+        if (loggedChatKeys[key]) return;
+        loggedChatKeys[key] = true;
+        var d = new Date(msg.ts || Date.now());
+        var line = '[' + d.toISOString() + '] [' + (mode || '?') + '] [' + (gameCode || 'local') + '] ' +
+                   (msg.ai ? 'AI ' : '') + (msg.name || '?') + ': ' + msg.text + '\n';
+        var existing = localStorage.getItem(CHAT_LOG_KEY) || '';
+        localStorage.setItem(CHAT_LOG_KEY, existing + line);
+      } catch (e) { /* quota or disabled storage */ }
+    }
+    window.downloadChatLog = function () {
+      var data = localStorage.getItem(CHAT_LOG_KEY) || '(empty)';
+      var blob = new Blob([data], { type: 'text/plain' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'crazy8-chatlog-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+    window.viewChatLog = function () { return localStorage.getItem(CHAT_LOG_KEY) || '(empty)'; };
+    window.clearChatLog = function () { localStorage.removeItem(CHAT_LOG_KEY); loggedChatKeys = {}; };
+
     // ===== SCREEN MANAGEMENT =====
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
@@ -3849,6 +3880,7 @@
           // Also show in chat panel
           var chatMsg = { name: player.name, avatar: player.avatar, avatarColor: player.avatarColor, text: reply, ts: Date.now(), ai: true };
           self.chatMessages.push(chatMsg);
+          logChatToFile(chatMsg, self.gameCode, self.mode);
           self.renderChatMessage(chatMsg);
         });
       },
@@ -3879,6 +3911,7 @@
             // Show in chat panel
             var chatMsg = { name: player.name, avatar: player.avatar, avatarColor: player.avatarColor, text: reply, ts: Date.now(), ai: true };
             self.chatMessages.push(chatMsg);
+            logChatToFile(chatMsg, self.gameCode, self.mode);
             self.renderChatMessage(chatMsg);
           });
         }, delay);
@@ -4130,6 +4163,7 @@
         };
         this.chatMessages.push(chatMsg);
         this.lastChatCount = this.chatMessages.length;
+        logChatToFile(chatMsg, this.gameCode, this.mode);
         this.renderChatMessage(chatMsg);
 
         if (containsSwear(msg)) {
@@ -4169,6 +4203,7 @@
             showGroqStatus(true, '✓ Groq connected');
             var botMsg = { name: chosen.p.name, avatar: chosen.p.avatar, avatarColor: chosen.p.avatarColor, text: text.trim(), ts: Date.now(), ai: true };
             self.chatMessages.push(botMsg);
+            logChatToFile(botMsg, self.gameCode, self.mode);
             self.renderChatMessage(botMsg);
           }).catch(function(err) { showGroqStatus(false, '✗ fetch failed: ' + err.message); });
         }
@@ -4225,6 +4260,7 @@
         if (chats.length > this.lastChatCount) {
           for (var i = this.lastChatCount; i < chats.length; i++) {
             this.chatMessages.push(chats[i]);
+            logChatToFile(chats[i], this.gameCode, this.mode);
             this.renderChatMessage(chats[i]);
           }
           this.lastChatCount = chats.length;
