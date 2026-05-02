@@ -2266,7 +2266,7 @@
   <div id="dev-panel" style="display:none">
     <div id="dev-panel-inner">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <span style="font-weight:800;font-size:18px;letter-spacing:1px;">DEV — All Chat Logs</span>
+        <span style="font-weight:800;font-size:18px;letter-spacing:1px;">DEV — Game History</span>
         <div style="display:flex;gap:8px;align-items:center;">
           <button onclick="devRefresh()" id="dev-refresh-btn" style="padding:6px 14px;border-radius:8px;border:none;background:#2a2a4a;color:#adf;font-weight:700;cursor:pointer;font-size:13px;">↻ Refresh</button>
           <button onclick="devClose()" style="padding:6px 14px;border-radius:8px;border:none;background:#444;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">✕ Close</button>
@@ -2324,6 +2324,71 @@
       margin: 18px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 1px;
       color: #7af; text-transform: uppercase;
     }
+    .dev-game-card {
+      background: #14142b; border: 1px solid #2a2a4a; border-radius: 12px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    .dev-game-head {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px;
+      margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #222244;
+    }
+    .dev-game-code { font-weight: 800; font-size: 16px; color: #adf; letter-spacing: 1px; }
+    .dev-game-when { font-size: 12px; color: #888; }
+    .dev-game-status {
+      font-size: 11px; padding: 2px 8px; border-radius: 10px;
+      background: #2a2a4a; color: #ccc; font-weight: 700; text-transform: uppercase;
+    }
+    .dev-game-status.finished { background: #1d3a25; color: #6f6; }
+    .dev-game-status.playing { background: #3a311d; color: #fc6; }
+    .dev-game-status.waiting { background: #2a2a4a; color: #ccc; }
+    .dev-snap {
+      display: grid; grid-template-columns: auto 1fr; gap: 14px;
+      padding: 10px; background: #0d0d1f; border-radius: 8px;
+      border: 1px solid #1f1f3a; margin-bottom: 10px;
+    }
+    .dev-snap-discard {
+      width: 88px; height: 124px; border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #fff; font-weight: 900; font-size: 36px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5); position: relative;
+    }
+    .dev-snap-discard .dev-color-dot {
+      position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.6);
+    }
+    .dev-snap-empty {
+      width: 88px; height: 124px; border-radius: 10px;
+      border: 2px dashed #444; color: #666; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; text-align: center; padding: 4px;
+    }
+    .dev-snap-players {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px;
+      align-content: start;
+    }
+    .dev-snap-player {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.04);
+      font-size: 12px; min-width: 0;
+    }
+    .dev-snap-player.winner { background: rgba(108,255,108,0.12); border: 1px solid #2c7d2c; }
+    .dev-snap-player.left { opacity: 0.45; }
+    .dev-snap-avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+      flex-shrink: 0;
+    }
+    .dev-snap-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .dev-snap-cards {
+      font-size: 11px; padding: 1px 6px; border-radius: 8px; background: #2a2a4a; color: #adf; font-weight: 700;
+    }
+    .dev-snap-meta { font-size: 11px; color: #888; margin-top: 8px; grid-column: 1 / -1; display: flex; gap: 14px; flex-wrap: wrap; }
+    .dev-chat-block { margin-top: 8px; }
+    .dev-chat-block-empty { color: #666; font-style: italic; font-size: 12px; padding: 4px 0; }
+    .dev-chat-tab {
+      display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 6px;
+      background: #444; color: #ccc; margin-left: 6px; vertical-align: middle;
+    }
+    .dev-chat-tab.local { background: #3a3015; color: #fc6; }
   </style>
 
   <script>
@@ -2364,7 +2429,11 @@
       btn.textContent = '↻ Loading…';
       btn.disabled = true;
       var FBURL = 'https://gamehub-cce9d-default-rtdb.firebaseio.com';
-      // Shallow fetch to list all game codes
+
+      // Pull on-device append-only archive (preserves chats Firebase wiped).
+      var localArchive = {};
+      try { localArchive = JSON.parse(localStorage.getItem('crazy8_chat_archive_v1') || '{}'); } catch (e) { localArchive = {}; }
+
       fetch(FBURL + '/games.json?shallow=true')
         .then(function (r) { return r.json(); })
         .then(function (keys) {
@@ -2374,59 +2443,175 @@
           }
           var codes = Object.keys(keys);
           var promises = codes.map(function (code) {
-            return fetch(FBURL + '/games/' + code + '/chat.json')
+            return fetch(FBURL + '/games/' + code + '.json')
               .then(function (r) { return r.json(); })
-              .then(function (chatData) { return { code: code, chatData: chatData }; })
-              .catch(function () { return { code: code, chatData: null }; });
+              .then(function (data) { return { code: code, data: data }; })
+              .catch(function () { return { code: code, data: null }; });
           });
           return Promise.all(promises);
         })
         .then(function (results) {
           if (!results) return;
-          var allMsgs = [];
-          results.forEach(function (r) {
-            if (!r.chatData) return;
-            var arr = Array.isArray(r.chatData) ? r.chatData : Object.values(r.chatData);
-            arr.forEach(function (msg) {
-              if (msg && msg.text) allMsgs.push({ code: r.code, name: msg.name || '?', text: msg.text, ts: msg.ts || 0, ai: !!msg.ai });
-            });
+          var games = results.filter(function (r) { return r.data; });
+          // Most recent first, by createdAt fallback to actionTimestamp.
+          games.sort(function (a, b) {
+            var ta = a.data.createdAt || a.data.actionTimestamp || 0;
+            var tb = b.data.createdAt || b.data.actionTimestamp || 0;
+            return tb - ta;
           });
-          allMsgs.sort(function (a, b) { return a.ts - b.ts; });
 
-          var SWEARS = ['fuck','shit','bitch','cunt','nigga','nigger','cock','pussy','bastard','黑鬼','雞巴'];
-          function hasSwear(t) { var l = t.toLowerCase(); for (var i = 0; i < SWEARS.length; i++) if (l.indexOf(SWEARS[i]) !== -1) return true; return false; }
-
-          var stats = document.getElementById('dev-stats');
-          stats.textContent = allMsgs.length + ' messages across ' + results.filter(function(r){return r.chatData;}).length + ' games';
+          var totalMsgs = 0;
+          games.forEach(function (g) {
+            var fb = g.data.chat;
+            if (Array.isArray(fb)) totalMsgs += fb.length;
+            else if (fb && typeof fb === 'object') totalMsgs += Object.keys(fb).length;
+          });
+          document.getElementById('dev-stats').textContent =
+            games.length + ' games • ' + totalMsgs + ' chat msgs in Firebase • ' +
+            Object.keys(localArchive).length + ' games with on-device archive';
 
           var list = document.getElementById('dev-chat-list');
-          if (allMsgs.length === 0) { list.innerHTML = '<div style="color:#888">No chats yet.</div>'; btn.textContent = '↻ Refresh'; btn.disabled = false; return; }
-
-          var html = '';
-          var lastCode = null;
-          allMsgs.forEach(function (msg) {
-            if (msg.code !== lastCode) {
-              html += '<div class="dev-section-header">Game: ' + msg.code + '</div>';
-              lastCode = msg.code;
-            }
-            var swear = hasSwear(msg.text);
-            var d = msg.ts ? new Date(msg.ts) : null;
-            var tsStr = d ? (d.toLocaleDateString() + ' ' + d.toLocaleTimeString()) : '—';
-            html += '<div class="dev-msg' + (swear ? ' dev-swear' : '') + '">';
-            html += '<span class="dev-ts">' + tsStr + '</span>';
-            html += '<span class="dev-name">' + escHtml(msg.name) + '</span>';
-            if (msg.ai) html += '<span style="color:#f90;font-size:11px;margin-right:6px;">[AI]</span>';
-            if (swear) html += '<span style="color:#e63946;font-size:11px;margin-right:6px;">⚠</span>';
-            html += escHtml(msg.text);
-            html += '</div>';
-          });
-          list.innerHTML = html;
+          if (games.length === 0) {
+            list.innerHTML = '<div style="color:#888">No games yet.</div>';
+            btn.textContent = '↻ Refresh'; btn.disabled = false; return;
+          }
+          list.innerHTML = games.map(function (g) { return renderDevGameCard(g.code, g.data, localArchive[g.code] || []); }).join('');
           btn.textContent = '↻ Refresh'; btn.disabled = false;
         })
         .catch(function (e) {
           document.getElementById('dev-chat-list').innerHTML = '<div style="color:#e63946">Error: ' + e.message + '</div>';
           btn.textContent = '↻ Refresh'; btn.disabled = false;
         });
+    }
+
+    function renderDevGameCard(code, data, localChat) {
+      var SWEARS = ['fuck','shit','bitch','cunt','nigga','nigger','cock','pussy','bastard','黑鬼','雞巴'];
+      function hasSwear(t) { var l = (t || '').toLowerCase(); for (var i = 0; i < SWEARS.length; i++) if (l.indexOf(SWEARS[i]) !== -1) return true; return false; }
+      var COLORS = { red: '#E53935', yellow: '#FDD835', green: '#43A047', blue: '#1E88E5' };
+      var VALUE_LABELS = { 'draw2': '+2', 'reverse': '⇄', 'skip': '⊘', 'wild': '★', 'wild_draw4': '+4' };
+
+      var createdAt = data.createdAt || data.actionTimestamp || 0;
+      var whenStr = createdAt ? new Date(createdAt).toLocaleString() : '—';
+      var statusClass = data.gameOver ? 'finished' : (data.status === 'waiting' ? 'waiting' : 'playing');
+      var statusText = data.gameOver ? 'Finished' : (data.status || 'unknown');
+
+      var players = Array.isArray(data.players) ? data.players :
+        (data.players && typeof data.players === 'object'
+          ? Object.keys(data.players).sort(function (a, b) { return Number(a) - Number(b); }).map(function (k) { return data.players[k]; })
+          : []);
+
+      var winnerIdx = -1;
+      if (data.gameOver) {
+        for (var i = 0; i < players.length; i++) {
+          var hand = players[i] && players[i].hand;
+          var n = Array.isArray(hand) ? hand.length : (hand && typeof hand === 'object' ? Object.keys(hand).length : 0);
+          if (n === 0) { winnerIdx = i; break; }
+        }
+      }
+
+      var discard = '';
+      var discPile = data.discardPile;
+      var top = null;
+      if (Array.isArray(discPile) && discPile.length) top = discPile[discPile.length - 1];
+      else if (discPile && typeof discPile === 'object') {
+        var dkeys = Object.keys(discPile).sort(function (a, b) { return Number(a) - Number(b); });
+        if (dkeys.length) top = discPile[dkeys[dkeys.length - 1]];
+      }
+      if (top) {
+        var bg = COLORS[top.color] || '#555';
+        var label = VALUE_LABELS[top.value] || (top.value || '?');
+        var dot = data.currentColor && COLORS[data.currentColor] ? COLORS[data.currentColor] : 'transparent';
+        discard = '<div class="dev-snap-discard" style="background:' + bg + '">' +
+                  '<span>' + escHtml(label) + '</span>' +
+                  '<span class="dev-color-dot" style="background:' + dot + '"></span>' +
+                  '</div>';
+      } else {
+        discard = '<div class="dev-snap-empty">no discard</div>';
+      }
+
+      var playersHtml = players.map(function (p, i) {
+        if (!p) return '';
+        var hand = p.hand;
+        var nCards = Array.isArray(hand) ? hand.length : (hand && typeof hand === 'object' ? Object.keys(hand).length : 0);
+        var cls = 'dev-snap-player';
+        if (i === winnerIdx) cls += ' winner';
+        if (p.left) cls += ' left';
+        var avatar = p.avatar || '😀';
+        var avBg = p.avatarColor || '#555';
+        var name = p.name || '(empty)';
+        return '<div class="' + cls + '">' +
+                 '<div class="dev-snap-avatar" style="background:' + avBg + '">' + escHtml(avatar) + '</div>' +
+                 '<div class="dev-snap-name" title="' + escHtml(name) + '">' + escHtml(name) + (i === winnerIdx ? ' 🏆' : '') + (p.left ? ' (left)' : '') + '</div>' +
+                 '<div class="dev-snap-cards">' + nCards + '</div>' +
+               '</div>';
+      }).join('');
+
+      var fbChat = [];
+      if (Array.isArray(data.chat)) fbChat = data.chat.slice();
+      else if (data.chat && typeof data.chat === 'object') fbChat = Object.keys(data.chat).map(function (k) { return data.chat[k]; });
+
+      var seen = {};
+      var combined = [];
+      fbChat.forEach(function (m) {
+        if (!m || !m.text) return;
+        var k = (m.ts || 0) + '|' + (m.name || '') + '|' + m.text;
+        if (seen[k]) return;
+        seen[k] = true;
+        combined.push({ msg: m, source: 'fb' });
+      });
+      (localChat || []).forEach(function (m) {
+        if (!m || !m.text) return;
+        var k = (m.ts || 0) + '|' + (m.name || '') + '|' + m.text;
+        if (seen[k]) return;
+        seen[k] = true;
+        combined.push({ msg: m, source: 'local' });
+      });
+      combined.sort(function (a, b) { return (a.msg.ts || 0) - (b.msg.ts || 0); });
+
+      var chatHtml;
+      if (combined.length === 0) {
+        chatHtml = '<div class="dev-chat-block-empty">No chat messages.</div>';
+      } else {
+        chatHtml = combined.map(function (entry) {
+          var msg = entry.msg;
+          var swear = hasSwear(msg.text);
+          var d = msg.ts ? new Date(msg.ts) : null;
+          var tsStr = d ? (d.toLocaleDateString() + ' ' + d.toLocaleTimeString()) : '—';
+          var s = '<div class="dev-msg' + (swear ? ' dev-swear' : '') + '">';
+          s += '<span class="dev-ts">' + tsStr + '</span>';
+          s += '<span class="dev-name">' + escHtml(msg.name || '?') + '</span>';
+          if (msg.ai) s += '<span style="color:#f90;font-size:11px;margin-right:6px;">[AI]</span>';
+          if (swear) s += '<span style="color:#e63946;font-size:11px;margin-right:6px;">⚠</span>';
+          s += escHtml(msg.text);
+          if (entry.source === 'local') s += '<span class="dev-chat-tab local">local</span>';
+          else s += '<span class="dev-chat-tab">fb</span>';
+          s += '</div>';
+          return s;
+        }).join('');
+      }
+
+      var dirSym = data.direction === -1 ? '↺ reverse' : '↻ forward';
+      var actionAt = data.actionTimestamp ? new Date(data.actionTimestamp).toLocaleString() : '—';
+
+      return '' +
+        '<div class="dev-game-card">' +
+          '<div class="dev-game-head">' +
+            '<span class="dev-game-code">' + escHtml(code) + '</span>' +
+            '<span class="dev-game-status ' + statusClass + '">' + escHtml(statusText) + '</span>' +
+            '<span class="dev-game-when">created ' + escHtml(whenStr) + '</span>' +
+          '</div>' +
+          '<div class="dev-snap">' +
+            discard +
+            '<div class="dev-snap-players">' + (playersHtml || '<div style="color:#666;font-size:12px;">no players</div>') + '</div>' +
+            '<div class="dev-snap-meta">' +
+              '<span>players: ' + players.length + '</span>' +
+              '<span>direction: ' + dirSym + '</span>' +
+              '<span>last action: ' + escHtml(actionAt) + '</span>' +
+              (winnerIdx >= 0 ? '<span style="color:#6f6;">winner: ' + escHtml(players[winnerIdx].name || '?') + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          '<div class="dev-chat-block">' + chatHtml + '</div>' +
+        '</div>';
     }
     function escHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
