@@ -3161,6 +3161,7 @@
         this.gameOver = false;
         this.moveCount = 0;
         this.mustDraw = 0;
+        this.mustDrawType = null;
         this.skipNext = false;
         this.calledCrazy8 = false;
         this.crazy8PlayerIndex = -1;
@@ -3336,7 +3337,7 @@
 
         player.hand.forEach(function (card, idx) {
           var el = self.createCardElement(card);
-          var canPlay = isMyTurn && card.canPlayOn(topCard, self.currentColor);
+          var canPlay = isMyTurn && self.cardIsPlayable(card);
           if (canPlay) el.classList.add('playable');
           if (isMyTurn && canPlay) {
             el.addEventListener('click', function () { self.playCard(idx); });
@@ -3490,7 +3491,17 @@
 
       updatePassBtn: function () {
         var btn = document.getElementById('pass-btn');
-        if (this.drewThisTurn && this.currentPlayerIndex === this.myPlayerIndex && !this.gameOver) {
+        var isMyTurn = this.currentPlayerIndex === this.myPlayerIndex && !this.gameOver;
+        if (isMyTurn && this.mustDraw > 0) {
+          // Only offer the option to skip stacking if they actually have a card to stack with.
+          if (this.hasStackablePlay(this.myPlayerIndex)) {
+            btn.textContent = 'TAKE +' + this.mustDraw;
+            btn.style.display = 'block';
+          } else {
+            btn.style.display = 'none';
+          }
+        } else if (isMyTurn && this.drewThisTurn) {
+          btn.textContent = 'PASS';
           btn.style.display = 'block';
         } else {
           btn.style.display = 'none';
@@ -3520,6 +3531,42 @@
       },
 
       // ===== GAME LOGIC =====
+      // While a draw stack is pending, only stack-able cards are playable:
+      //   d2-stack: draw2 or wild4 (wild4 escalates to d4-stack).
+      //   d4-stack: only wild4 (draw2 cannot stack on a wild4 chain).
+      cardIsPlayable: function (card) {
+        if (this.mustDraw > 0) {
+          if (this.mustDrawType === 'd4') return card.value === 'wild4';
+          return card.value === 'draw2' || card.value === 'wild4';
+        }
+        var topCard = this.discardPile[this.discardPile.length - 1];
+        return card.canPlayOn(topCard, this.currentColor);
+      },
+      hasStackablePlay: function (playerIndex) {
+        if (this.mustDraw <= 0) return false;
+        var p = this.players[playerIndex];
+        if (!p || !p.hand) return false;
+        for (var i = 0; i < p.hand.length; i++) {
+          if (this.cardIsPlayable(p.hand[i])) return true;
+        }
+        return false;
+      },
+      takeStack: function () {
+        if (this.mustDraw <= 0) return;
+        var n = this.mustDraw;
+        var p = this.players[this.currentPlayerIndex];
+        for (var i = 0; i < n; i++) p.hand.push(this.drawFromDeck());
+        this.showToast(p.name + ' took +' + n);
+        var prevType = this.mustDrawType;
+        this.mustDraw = 0;
+        this.mustDrawType = null;
+        this.updateCardCounts();
+        if (this.currentPlayerIndex === this.myPlayerIndex) this.renderHand();
+        this.gameEventBotChat(this.currentPlayerIndex, 'you just took a +' + n + ' stack and had to draw ' + n + ' cards');
+        this.drewThisTurn = false;
+        this.nextTurn();
+      },
+
       drawFromDeck: function () {
         if (this.deck.length === 0) {
           var top = this.discardPile.pop();
@@ -3540,8 +3587,7 @@
         if (this.animating || this.gameOver || this.currentPlayerIndex !== this.myPlayerIndex) return;
         var player = this.players[this.myPlayerIndex];
         var card = player.hand[cardIndex];
-        var topCard = this.discardPile[this.discardPile.length - 1];
-        if (!card.canPlayOn(topCard, this.currentColor)) return;
+        if (!this.cardIsPlayable(card)) return;
 
         this.animating = true;
         this.drewThisTurn = false;
@@ -3728,7 +3774,7 @@
         var color = this.botPickColor(playerIndex);
         this.currentColor = color;
         this.updateColorIndicator();
-        if (card.value === 'wild4') this.mustDraw = 4;
+        if (card.value === 'wild4') { this.mustDraw += 4; this.mustDrawType = 'd4'; }
         this.showToast(this.players[playerIndex].name + ' chose ' + color.toUpperCase());
         this.nextTurn();
       },
@@ -3834,7 +3880,7 @@
             var color = this.botPickColor(playerIndex);
             this.currentColor = color;
             this.updateColorIndicator();
-            if (card.value === 'wild4') this.mustDraw = 4;
+            if (card.value === 'wild4') { this.mustDraw += 4; this.mustDrawType = 'd4'; }
             this.showToast(this.players[playerIndex].name + ' chose ' + color.toUpperCase());
           }
         }
@@ -3856,7 +3902,8 @@
           this.showToast('Skip!');
         }
         if (card.value === 'draw2') {
-          this.mustDraw = 2;
+          this.mustDraw += 2;
+          if (this.mustDrawType !== 'd4') this.mustDrawType = 'd2';
         }
 
         this.updateColorIndicator();
@@ -3869,13 +3916,14 @@
         document.getElementById('color-picker-overlay').classList.remove('show');
         this.currentColor = color;
         this.updateColorIndicator();
-        if (this.pendingCard && this.pendingCard.value === 'wild4') this.mustDraw = 4;
+        if (this.pendingCard && this.pendingCard.value === 'wild4') { this.mustDraw += 4; this.mustDrawType = 'd4'; }
         this.showToast('You chose ' + color.toUpperCase());
         this.nextTurn();
       },
 
       drawCard: function () {
         if (this.animating || this.gameOver || this.currentPlayerIndex !== this.myPlayerIndex || this.pendingColorPick) return;
+        if (this.mustDraw > 0) { this.takeStack(); return; }
         if (this.drewThisTurn) return; // Can only draw once per turn
 
         var player = this.players[this.myPlayerIndex];
@@ -3897,8 +3945,7 @@
         }
 
         // Check if drawn card can be played
-        var topCard = this.discardPile[this.discardPile.length - 1];
-        if (!card.canPlayOn(topCard, this.currentColor)) {
+        if (!this.cardIsPlayable(card)) {
           // Auto pass after a moment
           var self = this;
           setTimeout(function () { self.passTurn(); }, 1200);
@@ -3908,6 +3955,7 @@
 
       passTurn: function () {
         if (this.currentPlayerIndex !== this.myPlayerIndex || this.gameOver) return;
+        if (this.mustDraw > 0) { this.takeStack(); return; }
         this.drewThisTurn = false;
         this.nextTurn();
       },
@@ -3934,26 +3982,8 @@
           this.skipNext = false;
           var skipped = this.players[next];
           this.showToast(skipped.name + ' was skipped!');
-          if (this.mustDraw === 0) {
-            this.gameEventBotChat(next, this.players[this.currentPlayerIndex].name + ' just played a skip card on you and you lost your turn');
-          }
+          this.gameEventBotChat(next, this.players[this.currentPlayerIndex].name + ' just played a skip card on you and you lost your turn');
           next = this.getNextPlayer(next);
-        }
-        // (swear skip logic removed - handled immediately in sendChat)
-
-        if (this.mustDraw > 0) {
-          var drawCount = this.mustDraw;
-          var target = next;
-          var player = this.players[target];
-          for (var i = 0; i < drawCount; i++) {
-            player.hand.push(this.drawFromDeck());
-          }
-          this.showToast(player.name + ' draws ' + drawCount + ' cards!');
-          this.updateCardCounts();
-          if (target === this.myPlayerIndex) this.renderHand();
-          this.mustDraw = 0;
-          this.gameEventBotChat(target, this.players[this.currentPlayerIndex].name + ' just played a +' + drawCount + ' on you and you had to draw ' + drawCount + ' cards');
-          next = this.getNextPlayer(target);
         }
 
         this.currentPlayerIndex = next;
@@ -3972,6 +4002,15 @@
 
         if (next === this.myPlayerIndex) {
           this.renderHand();
+          // Pending stack and no stackable card: auto-take after a beat.
+          if (this.mustDraw > 0 && !this.hasStackablePlay(next)) {
+            var selfTake = this;
+            setTimeout(function () {
+              if (selfTake.currentPlayerIndex === next && selfTake.mustDraw > 0 && !selfTake.gameOver) {
+                selfTake.takeStack();
+              }
+            }, 900);
+          }
         } else if (this.mode === 'ai') {
           var self = this;
           setTimeout(function () { self.botTurn(); }, 800 + Math.random() * 800);
@@ -4000,8 +4039,14 @@
         var topCard = this.discardPile[this.discardPile.length - 1];
         var playable = [];
         player.hand.forEach(function (card, idx) {
-          if (card.canPlayOn(topCard, game.currentColor)) playable.push({ card: card, idx: idx });
+          if (game.cardIsPlayable(card)) playable.push({ card: card, idx: idx });
         });
+
+        // Pending stack with nothing to chain → take it and pass.
+        if (this.mustDraw > 0 && playable.length === 0) {
+          this.takeStack();
+          return;
+        }
 
         if (playable.length > 0) {
           playable.sort(function (a, b) {
@@ -4046,7 +4091,7 @@
           this.updateCardCounts();
           this.showToast(player.name + ' drew a card');
 
-          if (drawn.canPlayOn(topCard, this.currentColor)) {
+          if (this.cardIsPlayable(drawn)) {
             var self = this;
             var ci = this.currentPlayerIndex;
             setTimeout(function () {
@@ -4207,6 +4252,7 @@
           currentColor: this.currentColor,
           direction: this.direction,
           mustDraw: this.mustDraw,
+          mustDrawType: this.mustDrawType || null,
           skipNext: this.skipNext,
           gameOver: this.gameOver,
           moveCount: this.moveCount || 0,
@@ -4228,6 +4274,7 @@
         this.currentColor = data.currentColor;
         this.direction = data.direction || 1;
         this.mustDraw = data.mustDraw || 0;
+        this.mustDrawType = data.mustDrawType || null;
         this.skipNext = data.skipNext || false;
         this.gameOver = data.gameOver || false;
         this.moveCount = data.moveCount || 0;
