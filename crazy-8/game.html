@@ -4340,6 +4340,12 @@
         var input = document.getElementById('chat-input');
         var msg = text || (input ? input.value.trim() : '');
         if (!msg) return;
+
+        if (containsSwear(msg)) {
+          this.showToast('🤬 message blocked — no swearing');
+          return;
+        }
+
         if (input) input.value = '';
         this.userHasChatted = true;
 
@@ -4354,18 +4360,6 @@
         this.chatMessages.push(chatMsg);
         this.lastChatCount = this.chatMessages.length;
         this.renderChatMessage(chatMsg);
-
-        if (containsSwear(msg)) {
-          this.showToast('🤬 ' + me.name + ' swore! +4 cards penalty!');
-          for (var i = 0; i < 4; i++) {
-            me.hand.push(this.drawFromDeck());
-          }
-          this.updateCardCounts();
-          this.renderHand();
-          if (this.mode === 'online') {
-            this.saveToFirebase();
-          }
-        }
 
         if (this.mode === 'online') {
           this.appendChat(chatMsg);
