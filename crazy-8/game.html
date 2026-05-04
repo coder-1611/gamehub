@@ -1293,6 +1293,20 @@
       background: linear-gradient(135deg, #4a6bb5, #3b5998)
     }
 
+    #chat-quip {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #6b3b98, #4d2373);
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform .15s, background .15s;
+      font-weight: 900;
+    }
+    #chat-quip:hover { transform: scale(1.1); background: linear-gradient(135deg, #8a4ab5, #6b3b98); }
+    #chat-quip:disabled { opacity: 0.6; cursor: wait; }
+
     /* ===== GAME OVER ===== */
     #game-over-overlay {
       position: fixed;
@@ -2717,6 +2731,16 @@
           <button class="btn-count" onclick="selectBetaOnline(this,true)">On (3 cards)</button>
         </div>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <label>AI Assisted Quips</label>
+        <div class="btn-row" id="online-quip-row">
+          <button class="btn-count" data-quip="off" onclick="selectQuipMode(this,'off')">Off</button>
+          <button class="btn-count" data-quip="mean" onclick="selectQuipMode(this,'mean')">😈 Mean</button>
+          <button class="btn-count" data-quip="nice" onclick="selectQuipMode(this,'nice')">😊 Nice</button>
+          <button class="btn-count" data-quip="funny" onclick="selectQuipMode(this,'funny')">😂 Funny</button>
+          <button class="btn-count" data-quip="sarcastic" onclick="selectQuipMode(this,'sarcastic')">🙃 Sarcastic</button>
+        </div>
+      </div>
       <div style="display:flex;gap:14px;margin-top:24px">
         <button class="btn-primary" onclick="createOnlineGame()" style="margin-top:0">CREATE GAME</button>
         <button class="btn-secondary" onclick="showScreen('screen-join')">JOIN GAME</button>
@@ -2732,6 +2756,16 @@
         <label>Game Code</label>
         <input type="text" id="input-code" placeholder="Enter 5-letter code..." maxlength="5"
           style="text-align:center;font-family:'Fredoka One',cursive;font-size:28px;letter-spacing:6px;text-transform:uppercase">
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <label>AI Assisted Quips</label>
+        <div class="btn-row" id="join-quip-row">
+          <button class="btn-count" data-quip="off" onclick="selectQuipMode(this,'off')">Off</button>
+          <button class="btn-count" data-quip="mean" onclick="selectQuipMode(this,'mean')">😈 Mean</button>
+          <button class="btn-count" data-quip="nice" onclick="selectQuipMode(this,'nice')">😊 Nice</button>
+          <button class="btn-count" data-quip="funny" onclick="selectQuipMode(this,'funny')">😂 Funny</button>
+          <button class="btn-count" data-quip="sarcastic" onclick="selectQuipMode(this,'sarcastic')">🙃 Sarcastic</button>
+        </div>
       </div>
       <button class="btn-primary" onclick="joinOnlineGame()">JOIN</button>
       <div class="back-link" onclick="showScreen('screen-online-menu')">← Back</div>
@@ -2831,6 +2865,7 @@
         <div id="chat-messages"></div>
         <div id="chat-input-row">
           <input type="text" id="chat-input" placeholder="Type a message..." maxlength="80">
+          <button id="chat-quip" onclick="generateQuip()" title="AI quip" style="display:none">✨</button>
           <button id="chat-send" onclick="game.sendChat()">➤</button>
         </div>
       </div>
@@ -3219,6 +3254,7 @@
       showTable: function () {
         document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
         document.getElementById('table').style.display = 'block';
+        if (typeof updateQuipBtn === 'function') updateQuipBtn();
       },
 
       // ===== RENDERING =====
@@ -4566,7 +4602,74 @@
     // ===== START GAME FUNCTIONS =====
     var SYSTEM_PROMPT_MEAN = 'you are a toxic 15 year old trash talking in a Crazy 8 card game. be mean, rude, and disrespectful. use insults, roasts, and trash talk. teen slang, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought. no holding back.';
     var SYSTEM_PROMPT_NICE = 'you are a friendly, encouraging player in a Crazy 8 card game. be warm, supportive, and fun. give genuine compliments and cheer people on. casual and upbeat, lowercase. keep it under 100 characters but always finish your sentence completely, never cut off mid-thought.';
+    var SYSTEM_PROMPT_FUNNY = 'you are playing a Crazy 8 card game and have a sharp wit. write punchy one-liners, observational humor, dumb puns about cards. lowercase, under 100 characters, always finish your sentence.';
+    var SYSTEM_PROMPT_SARCASTIC = 'you are a dryly sarcastic player in a Crazy 8 card game. deadpan zingers, eye-roll energy, never sincere. lowercase, under 100 characters, always finish your sentence.';
     var SYSTEM_PROMPT = SYSTEM_PROMPT_MEAN;
+    var QUIP_PROMPTS = { mean: SYSTEM_PROMPT_MEAN, nice: SYSTEM_PROMPT_NICE, funny: SYSTEM_PROMPT_FUNNY, sarcastic: SYSTEM_PROMPT_SARCASTIC };
+
+    var quipMode = (function () { try { return localStorage.getItem('crazy8_quip_mode') || 'off'; } catch (e) { return 'off'; } })();
+    function selectQuipMode(btn, mode) {
+      quipMode = mode;
+      try { localStorage.setItem('crazy8_quip_mode', mode); } catch (e) {}
+      document.querySelectorAll('#online-quip-row .btn-count, #join-quip-row .btn-count').forEach(function (b) {
+        b.classList.toggle('selected', b.getAttribute('data-quip') === mode);
+      });
+      updateQuipBtn();
+    }
+    function updateQuipBtn() {
+      var qb = document.getElementById('chat-quip');
+      if (!qb) return;
+      var inOnlineGame = !!(window._game && _game.mode === 'online' && _game.gameCode);
+      qb.style.display = (quipMode !== 'off' && inOnlineGame) ? 'inline-block' : 'none';
+    }
+    window.updateQuipBtn = updateQuipBtn;
+    // Apply persisted selection on load
+    setTimeout(function () { selectQuipMode(null, quipMode); }, 0);
+
+    var quipBusy = false;
+    function generateQuip() {
+      if (quipMode === 'off' || quipBusy) return;
+      var input = document.getElementById('chat-input');
+      var btn = document.getElementById('chat-quip');
+      quipBusy = true;
+      var origBtn = btn.textContent; btn.textContent = '⏳'; btn.disabled = true;
+
+      var me = (window._game && _game.players && _game.players[_game.myPlayerIndex]) || { name: 'me' };
+      var others = (window._game && _game.players)
+        ? _game.players.filter(function (p, i) { return p && i !== _game.myPlayerIndex && !p.left; }).map(function (p) { return p.name; })
+        : [];
+      var lastChats = (window._game && _game.chatMessages || []).slice(-4).map(function (m) {
+        return (m.name || '?') + ': ' + (m.text || '');
+      }).join(' | ');
+      var seed = input.value.trim();
+
+      var sys = QUIP_PROMPTS[quipMode] || SYSTEM_PROMPT_MEAN;
+      var trigger = "you are " + me.name + " in a Crazy 8 game with " + (others.join(', ') || 'others') +
+                    ". recent chat: " + (lastChats || '(none)') +
+                    (seed ? '. extend or rewrite this draft: "' + seed + '"' : '. write one short message to send.');
+
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          max_tokens: 60,
+          messages: [{ role: 'system', content: sys }, { role: 'user', content: trigger }]
+        })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        if (text) {
+          input.value = text.trim().replace(/^["']|["']$/g, '').slice(0, 80);
+          input.focus();
+        } else if (window._game && _game.showToast) {
+          _game.showToast('quip failed');
+        }
+      }).catch(function () {
+        if (window._game && _game.showToast) _game.showToast('quip failed');
+      }).then(function () {
+        quipBusy = false; btn.textContent = origBtn; btn.disabled = false;
+      });
+    }
 
     var betaMode = false;
     function selectBeta(btn, val) {
