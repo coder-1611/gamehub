@@ -4457,7 +4457,7 @@
         var msg = text || (input ? input.value.trim() : '');
         if (!msg) return;
 
-        if (containsSwear(msg)) {
+        if (containsSwear(msg) && !/eli\s+yoon/i.test(msg)) {
           this.showToast('🤬 message blocked — no swearing');
           return;
         }
